@@ -1,86 +1,91 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>📚 ISBNスキャナ</title>
-  <script src="https://unpkg.com/@zxing/library@latest"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISBNスキャナ</title>
   <style>
     body {
-      font-family: sans-serif;
-      padding: 1em;
-    }
-    video {
-      width: 100%;
-      max-width: 500px;
-    }
-    #result {
-      font-size: 1.2em;
-      color: green;
-      margin-top: 1em;
-    }
-    ul {
-      list-style: none;
+      font-family: 'Arial', 'Hiragino Kaku Gothic ProN', sans-serif;
+      margin: 0;
       padding: 0;
+      background-color: #f8f9fa;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
-    li {
-      margin: 0.3em 0;
+
+    h1 {
+      margin-top: 1.2rem;
+      font-size: 1.6rem;
+    }
+
+    video {
+      margin-top: 1rem;
+      width: 90%;
+      max-width: 500px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    #status {
+      margin-top: 1.5rem;
+      font-size: 1rem;
+      color: #1a8c3f;
+    }
+
+    @media screen and (min-width: 768px) {
+      h1 {
+        font-size: 2rem;
+      }
+
+      #status {
+        font-size: 1.2rem;
+      }
     }
   </style>
 </head>
 <body>
   <h1>📷 ISBN スキャナ</h1>
-  <video id="video" autoplay muted></video>
-  <div id="result">📖 スキャン待機中...</div>
-  <div id="book-info"></div>
+  <video id="camera" autoplay playsinline></video>
+  <div id="status">📖 スキャン待機中…</div>
 
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
   <script>
     const codeReader = new ZXing.BrowserMultiFormatReader();
-    const videoElement = document.getElementById('video');
-    const resultElement = document.getElementById('result');
-    const bookInfo = document.getElementById('book-info');
+    const videoElement = document.getElementById('camera');
+    const statusElement = document.getElementById('status');
 
-    let lastISBN = "";
+    codeReader
+      .listVideoInputDevices()
+      .then(videoInputDevices => {
+        const selectedDeviceId = videoInputDevices[0]?.deviceId;
+        return codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, err) => {
+          if (result) {
+            const isbn = result.getText();
+            statusElement.textContent = `📚 読み取り成功: ${isbn}`;
 
-    codeReader.decodeFromVideoDevice(null, videoElement, async (result, err) => {
-      if (result) {
-        const isbn = result.getText();
+            fetch(`/add/${isbn}`)
+              .then(res => res.json())
+              .then(data => {
+                if (data.status === "OK") {
+                  statusElement.textContent = `✅ 登録完了: ${data.title}（${data.author}）`;
+                } else {
+                  statusElement.textContent = `⚠️ エラー: ${data.message}`;
+                }
+              })
+              .catch(error => {
+                statusElement.textContent = `❌ 通信エラー`;
+              });
 
-        if (isbn === lastISBN) return;
-        lastISBN = isbn;
-
-        if (!/^97[89]\d{10}$/.test(isbn)) {
-          resultElement.textContent = `⚠️ 無効なコード: ${isbn}`;
-          return;
-        }
-
-        resultElement.textContent = `ISBN: ${isbn}`;
-
-        try {
-          const res = await fetch(`/add/${isbn}`);
-          const data = await res.json();
-
-          if (data.status === "OK") {
-            bookInfo.innerHTML = `
-              <ul>
-                <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
-                <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
-                <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
-                <li><strong>🗓️ 出版日:</strong> ${data.pub_date || "情報なし"}</li>
-                <li><strong>💴 価格:</strong> ${data.price || "情報なし"}</li>
-                <li><strong>📄 ページ数:</strong> ${data.pages || "情報なし"}</li>
-                <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
-              </ul>
-            `;
-          } else {
-            bookInfo.innerHTML = `<p>🔍 書籍情報が見つかりませんでした。</p>`;
+            codeReader.reset();
           }
-        } catch (e) {
-          bookInfo.innerHTML = `<p>⚠️ 通信エラー: ${e.message}</p>`;
-        }
-
-        codeReader.reset(); // 一回読み取り用
-      }
-    });
+        });
+      })
+      .catch(err => {
+        statusElement.textContent = `❌ カメラアクセスエラー: ${err}`;
+      });
   </script>
 </body>
 </html>
