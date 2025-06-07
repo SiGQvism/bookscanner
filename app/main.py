@@ -6,12 +6,24 @@ from dotenv import load_dotenv
 from notion_client import Client
 from .isbn import fetch_book
 from jinja2 import Template
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 load_dotenv()
 app = FastAPI()
 
 notion = Client(auth=os.getenv("NOTION_TOKEN"))
 DB = os.getenv("NOTION_DB")
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/manifest.json")
+def manifest():
+    return FileResponse("static/manifest.json")
+
+@app.get("/service-worker.js")
+def service_worker():
+    return FileResponse("static/service-worker.js")
 
 # --- ルート：カメラページ表示 ---
 @app.get("/", response_class=HTMLResponse)
