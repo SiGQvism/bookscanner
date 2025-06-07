@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>📚 ISBNスキャナ</title>
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 1em;
+    }
+    video {
+      width: 100%;
+      max-width: 500px;
+    }
+    #result {
+      font-size: 1.2em;
+      color: green;
+      margin-top: 1em;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      margin: 0.3em 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>📷 ISBN スキャナ</h1>
+  <video id="video" autoplay muted></video>
+  <div id="result">📖 スキャン待機中...</div>
+  <div id="book-info"></div>
+
+  <script>
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+    const videoElement = document.getElementById('video');
+    const resultElement = document.getElementById('result');
+    const bookInfo = document.getElementById('book-info');
+
+    let lastISBN = "";
+
+    codeReader.decodeFromVideoDevice(null, videoElement, async (result, err) => {
+      if (result) {
+        const isbn = result.getText();
+
+        if (isbn === lastISBN) return;
+        lastISBN = isbn;
+
+        if (!/^97[89]\d{10}$/.test(isbn)) {
+          resultElement.textContent = `⚠️ 無効なコード: ${isbn}`;
+          return;
+        }
+
+        resultElement.textContent = `ISBN: ${isbn}`;
+
+        try {
+          const res = await fetch(`/add/${isbn}`);
+          const data = await res.json();
+
+          if (data.status === "OK") {
+            bookInfo.innerHTML = `
+              <ul>
+                <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
+                <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
+                <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
+                <li><strong>🗓️ 出版日:</strong> ${data.pub_date || "情報なし"}</li>
+                <li><strong>💴 価格:</strong> ${data.price || "情報なし"}</li>
+                <li><strong>📄 ページ数:</strong> ${data.pages || "情報なし"}</li>
+                <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
+              </ul>
+            `;
+          } else {
+            bookInfo.innerHTML = `<p>🔍 書籍情報が見つかりませんでした。</p>`;
+          }
+        } catch (e) {
+          bookInfo.innerHTML = `<p>⚠️ 通信エラー: ${e.message}</p>`;
+        }
+
+        codeReader.reset(); // 一回読み取り用
+      }
+    });
+  </script>
+</body>
+</html>
