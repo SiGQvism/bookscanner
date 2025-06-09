@@ -1,16 +1,17 @@
 import requests
+import json
 
-def fetch_book(isbn):
-    result = {
+def fetch_book_combined(isbn: str) -> dict:
+    data = {
+        "isbn": isbn,
         "title": "",
         "author": "",
         "publisher": "",
         "pub_date": "",
-        "price": "",
         "pages": "",
+        "price": "",
         "summary": "",
-        "cover": "",
-        "isbn": isbn
+        "cover": ""
     }
 
     openbd_url = f"https://api.openbd.jp/v1/get?isbn={isbn}"
