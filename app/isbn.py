@@ -1,45 +1,48 @@
 import requests
 
 def fetch_book(isbn):
-    # Google Books優先
-    google_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
-    res = requests.get(google_url)
-    if res.status_code == 200 and res.json()["totalItems"] > 0:
-        item = res.json()["items"][0]["volumeInfo"]
-        return {
-            "title": item.get("title", ""),
-            "author": ", ".join(item.get("authors", [])),
-            "publisher": item.get("publisher", ""),
-            "pub_date": item.get("publishedDate", "").replace("-", ""),
-            "price": "0",
-            "pages": str(item.get("pageCount", "")),
-            "summary": item.get("description", ""),  # ✅ descriptionを優先
-            "cover": item.get("imageLinks", {}).get("thumbnail", ""),
-            "isbn": isbn
-        }
+    result = {
+        "title": "",
+        "author": "",
+        "publisher": "",
+        "pub_date": "",
+        "price": "",
+        "pages": "",
+        "summary": "",
+        "cover": "",
+        "isbn": isbn
+    }
 
-    # Fallback: OpenBD
+    # ① OpenBD
     openbd_url = f"https://api.openbd.jp/v1/get?isbn={isbn}"
     res = requests.get(openbd_url)
     if res.status_code == 200 and res.json()[0] is not None:
-        item = res.json()[0]
-        summary = item["summary"]
-        price = ""
-        try:
-            price = item["onix"]["ProductSupply"]["SupplyDetail"]["Price"][0]["PriceAmount"]
-        except:
-            price = ""
-
-        return {
+        summary = res.json()[0]["summary"]
+        result.update({
             "title": summary.get("title", ""),
             "author": summary.get("author", ""),
             "publisher": summary.get("publisher", ""),
             "pub_date": summary.get("pubdate", ""),
-            "price": price,
+            "price": summary.get("price", ""),
             "pages": summary.get("pages", ""),
-            "summary": summary.get("volume", ""),
-            "cover": summary.get("cover", ""),
-            "isbn": isbn
-        }
+            "cover": summary.get("cover", "")
+        })
 
-    raise Exception("書籍情報が見つかりませんでした")
+    # ② Google Books（補完用）
+    google_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
+    res = requests.get(google_url)
+    if res.status_code == 200 and res.json()["totalItems"] > 0:
+        item = res.json()["items"][0]["volumeInfo"]
+        result.update({
+            "title": result["title"] or item.get("title", ""),
+            "author": result["author"] or ", ".join(item.get("authors", [])),
+            "publisher": result["publisher"] or item.get("publisher", ""),
+            "pub_date": result["pub_date"] or item.get("publishedDate", "").replace("-", ""),
+            "summary": result["summary"] or item.get("description", ""),
+            "cover": result["cover"] or item.get("imageLinks", {}).get("thumbnail", "")
+        })
+
+    if not result["title"] and not result["author"]:
+        raise Exception("書籍情報が見つかりませんでした")
+
+    return result
