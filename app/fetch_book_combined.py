@@ -1,5 +1,10 @@
+import os
 import requests
-import json
+from dotenv import load_dotenv
+
+load_dotenv()
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
 
 def fetch_book_combined(isbn: str) -> dict:
     result = {
@@ -50,7 +55,7 @@ def fetch_book_combined(isbn: str) -> dict:
         print(f"❌ OpenBDエラー: {e}")
 
     # ========== Google Books Fallback ==========
-    google_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
+    google_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}&key={GOOGLE_API_KEY}"
     try:
         res = requests.get(google_url)
         if res.status_code == 200:
