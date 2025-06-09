@@ -4,15 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ISBNスキャナ</title>
+
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" href="/static/isbn192.png" />
   <meta name="theme-color" content="#000000" />
+
   <style>
     body {
       margin: 0;
+      font-family: 'Arial', 'Hiragino Kaku Gothic ProN', sans-serif;
       background-color: #000;
       color: #fff;
-      font-family: 'Arial', 'Hiragino Kaku Gothic ProN', sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -20,32 +22,35 @@
 
     h1 {
       font-size: 2rem;
-      color: #d6a2e8;
-      margin: 1rem 0;
+      color: #e0b0ff;
+      margin: 1rem 0 0.5rem;
     }
 
     video {
       width: 90%;
       max-width: 500px;
-      border-radius: 10px;
-      box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+      margin: 1rem 0;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
     }
 
     #status {
-      margin-top: 1rem;
       font-size: 1.2rem;
       font-weight: bold;
       color: #9fe89f;
+      text-align: center;
+      margin-top: 1.5rem;
     }
 
     #book-info {
       margin-top: 1rem;
       width: 90%;
       max-width: 600px;
-      background: #111;
-      border-radius: 10px;
-      padding: 1rem;
+      background-color: #111;
+      border-radius: 8px;
+      padding: 1.2rem;
       box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+      text-align: left;
     }
 
     #cover-img {
@@ -53,22 +58,26 @@
       margin: 0 auto 1rem;
       max-width: 200px;
       border-radius: 8px;
+      box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
     }
 
     ul {
-      padding-left: 1.2rem;
+      list-style: none;
+      padding: 0;
+      margin: 0;
     }
 
     li {
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.8rem;
+      line-height: 1.6;
     }
 
     strong {
-      color: #dda0dd;
+      color: #e0b0ff;
     }
 
     #rescan-btn {
-      margin: 1.5rem auto 0;
+      margin: 1.5rem auto 2rem;
       padding: 0.6rem 1.4rem;
       background-color: #8b508d;
       border: none;
@@ -95,66 +104,64 @@
     const bookInfo = document.getElementById("book-info");
     const rescanBtn = document.getElementById("rescan-btn");
     let lastIsbn = null;
-    let selectedDeviceId = null;
 
     function startScan() {
       codeReader.reset();
+      codeReader.listVideoInputDevices()
+        .then(videoInputDevices => {
+          const backCam = videoInputDevices.find(device =>
+            device.label.toLowerCase().includes("back")
+          );
+          const selectedDeviceId = backCam ? backCam.deviceId : videoInputDevices[0]?.deviceId;
 
-      codeReader.listVideoInputDevices().then(videoInputDevices => {
-        if (!selectedDeviceId) {
-          const backCam = videoInputDevices.find(d => d.label.toLowerCase().includes("back"));
-          selectedDeviceId = backCam?.deviceId || videoInputDevices[0]?.deviceId;
-        }
+          codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, err) => {
+            if (result) {
+              const isbn = result.getText();
+              if (isbn === lastIsbn) return;
+              lastIsbn = isbn;
 
-        codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, err) => {
-          if (result) {
-            const isbn = result.getText();
-            if (isbn === lastIsbn) return;
-            lastIsbn = isbn;
+              statusElement.textContent = `✅ 登録完了`;
 
-            statusElement.textContent = "✅ 登録完了";
+              const token = localStorage.getItem("notionToken");
+              const dbid = localStorage.getItem("notionDbId");
 
-            fetch(`/add/${isbn}`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({
-                token: localStorage.getItem("notionToken"),
-                db_id: localStorage.getItem("notionDbId")
+              fetch(`/add/${isbn}`, {
+                headers: {
+                  "Authorization": `Bearer ${token}`,
+                  "X-Database-ID": dbid
+                }
               })
-            })
-            .then(res => res.json())
-            .then(data => {
-              if (data.status === "OK") {
-                const cover = data.cover || "";
-                bookInfo.innerHTML = `
-                  ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
-                  <ul>
-                    <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
-                    <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
-                    <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
-                    <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
-                  </ul>
-                `;
-              } else {
-                statusElement.textContent = `⚠️ エラー: ${data.message}`;
-              }
-              rescanBtn.style.display = "block";
-            })
-            .catch(() => {
-              statusElement.textContent = "❌ 通信エラー";
-              bookInfo.innerHTML = "";
-              rescanBtn.style.display = "block";
-            });
+              .then(res => res.json())
+              .then(data => {
+                if (data.status === "OK") {
+                  const cover = data.cover || "";
+                  bookInfo.innerHTML = `
+                    ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
+                    <ul>
+                      <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
+                      <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
+                      <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
+                      <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
+                    </ul>
+                  `;
+                } else {
+                  statusElement.textContent = `⚠️ エラー: ${data.message}`;
+                }
+                rescanBtn.style.display = "block";
+              })
+              .catch(() => {
+                statusElement.textContent = `❌ 通信エラー`;
+                bookInfo.innerHTML = "";
+                rescanBtn.style.display = "block";
+              });
 
-            codeReader.reset();
-          }
+              codeReader.reset();
+            }
+          });
+        })
+        .catch(err => {
+          statusElement.textContent = `❌ カメラアクセスエラー: ${err}`;
         });
-      }).catch(err => {
-        statusElement.textContent = `❌ カメラエラー: ${err}`;
-        rescanBtn.style.display = "block";
-      });
     }
 
     rescanBtn.addEventListener("click", () => {
@@ -164,9 +171,7 @@
       startScan();
     });
 
-    window.addEventListener("load", () => {
-      startScan();
-    });
+    window.addEventListener("load", startScan);
   </script>
 </body>
 </html>
