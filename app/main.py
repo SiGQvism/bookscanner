@@ -1,58 +1,72 @@
 import os
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from jinja2 import Template
-from notion_client import Client
 from .isbn import fetch_book
+from notion_client import Client
 
 load_dotenv()
-
 app = FastAPI()
 
-# グローバルのDB ID（共通）
-DB = os.getenv("NOTION_DB")
-
-# 静的ファイル（CSSやJSなど）のマウント
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# --- PWA関連ルート ---
+# CORS（開発中のブラウザ制限解除用、必要なら）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- PWA関連ファイル返却 ---
 @app.get("/manifest.json")
 def manifest():
     return FileResponse("static/manifest.json")
+
 
 @app.get("/service-worker.js")
 def service_worker():
     return FileResponse("static/service-worker.js")
 
-# --- トップページ（Notionトークン入力画面） ---
+
+@app.get("/favicon.ico")
+def favicon():
+    return FileResponse("static/isbn192.png")
+
+# --- ルート（ログインフォーム） ---
 @app.get("/", response_class=HTMLResponse)
-def index():
-    with open("templates/index.html", encoding="utf-8") as f:
-        return Template(f.read()).render()
+def login_page():
+    with open("templates/login.html", encoding="utf-8") as f:
+        return HTMLResponse(f.read())
 
-# --- スキャン用ページ（カメラ + ISBN登録） ---
+
+# --- スキャンページ ---
 @app.get("/scan", response_class=HTMLResponse)
-def scan():
+def scan_page():
     with open("templates/scan.html", encoding="utf-8") as f:
-        return Template(f.read()).render()
+        return HTMLResponse(f.read())
 
-# --- 書籍登録API（Notionに登録） ---
-@app.get("/add/{isbn}")
+
+# --- 書籍登録処理（POST） ---
+@app.post("/add/{isbn}")
 async def add_book(isbn: str, request: Request):
     try:
-        token = request.headers.get("Authorization")
-        if not token:
-            return {"status": "NG", "message": "🔐 Notionトークンがありません"}
+        body = await request.json()
+        token = body.get("token")
+        db_id = body.get("db_id")
+        if not token or not db_id:
+            return JSONResponse(content={"status": "NG", "message": "トークンまたはDB IDが不足しています"}, status_code=400)
 
-        user_notion = Client(auth=token)
+        notion = Client(auth=token)
         data = fetch_book(isbn)
 
-        # --- 重複チェック ---
-        existing = user_notion.databases.query(
+        # --- 既存チェック ---
+        existing = notion.databases.query(
             **{
-                "database_id": DB,
+                "database_id": db_id,
                 "filter": {
                     "property": "ISBN",
                     "rich_text": {
@@ -61,14 +75,25 @@ async def add_book(isbn: str, request: Request):
                 }
             }
         )
-
         if not existing["results"]:
-            try:
-                create_page(data, user_notion)
-            except Exception as ne:
-                print(f"Notion登録エラー: {ne}")
-        else:
-            print(f"⚠️ 既に登録済み: ISBN {data['isbn']}")
+            # --- 新規作成 ---
+            props = {
+                "タイトル": {"title": [{"text": {"content": data["title"]}}]},
+                "著者": {"rich_text": [{"text": {"content": data["author"]}}]},
+                "ISBN": {"rich_text": [{"text": {"content": data["isbn"]}}]},
+                "値段": {"number": int(data["price"])} if data["price"].isdigit() else {"number": None},
+                "出版日": {"date": {"start": f"{data['pub_date'][:4]}-{data['pub_date'][4:6]}-01"}} if data["pub_date"] else {"date": None},
+                "ページ数": {"number": int(data["pages"])} if data["pages"].isdigit() else {"number": None},
+                "要約": {"rich_text": [{"text": {"content": data["summary"]}}]},
+            }
+
+            if data.get("cover"):
+                props["画像"] = {"files": [{"name": "cover.jpg", "external": {"url": data["cover"]}}]}
+
+            notion.pages.create(
+                parent={"database_id": db_id},
+                properties=props
+            )
 
         return {
             "status": "OK",
@@ -84,24 +109,3 @@ async def add_book(isbn: str, request: Request):
 
     except Exception as e:
         return {"status": "NG", "message": str(e)}
-
-
-# --- Notion登録処理 ---
-def create_page(b, notion_client):
-    props = {
-        "タイトル": {"title": [{"text": {"content": b["title"]}}]},
-        "著者":    {"rich_text": [{"text": {"content": b["author"]}}]},
-        "ISBN":    {"rich_text": [{"text": {"content": b["isbn"]}}]},
-        "値段":    {"number": int(b["price"])} if b["price"].isdigit() else {"number": None},
-        "出版日":  {"date": {"start": f"{b['pub_date'][:4]}-{b['pub_date'][4:6]}-01"}} if b["pub_date"] else {"date": None},
-        "ページ数": {"number": int(b["pages"])} if b["pages"].isdigit() else {"number": None},
-        "要約":    {"rich_text": [{"text": {"content": b["summary"]}}]},
-    }
-
-    if b.get("cover"):
-        props["画像"] = {"files": [{"name": "cover.jpg", "external": {"url": b["cover"]}}]}
-
-    notion_client.pages.create(
-        parent={"database_id": DB},
-        properties=props
-    )

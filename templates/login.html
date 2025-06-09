@@ -1,39 +1,94 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>🔐 Notionログイン</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Notionログイン</title>
   <style>
     body {
-      font-family: sans-serif;
       background-color: #000;
       color: #fff;
-      text-align: center;
-      padding-top: 5rem;
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
     }
-    input, button {
+
+    h1 {
+      color: #d19fe8;
+      margin-bottom: 1rem;
+    }
+
+    .login-box {
+      background-color: #111;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+      width: 90%;
+      max-width: 400px;
+    }
+
+    label {
+      display: block;
+      margin-top: 1rem;
+      margin-bottom: 0.2rem;
+      font-weight: bold;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 0.6rem;
+      border: none;
+      border-radius: 5px;
+      background-color: #222;
+      color: #fff;
+    }
+
+    button {
+      margin-top: 1.5rem;
+      width: 100%;
       padding: 0.7rem;
-      margin: 1rem;
+      background-color: #8b508d;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
       font-size: 1rem;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #a85fa8;
     }
   </style>
 </head>
 <body>
-  <h1>🔐 Notionログイン</h1>
-  <p>Notionのインテグレーショントークンを入力してください</p>
-  <input type="password" id="token-input" placeholder="secret_xxx..." />
-  <br>
-  <button onclick="saveToken()">ログイン</button>
+  <div class="login-box">
+    <h1>🔐 Notionログイン</h1>
+    <label for="token">🔑 トークン（secret_...）</label>
+    <input type="text" id="token" placeholder="secret_xxx..." />
+
+    <label for="dbid">📁 データベースID</label>
+    <input type="text" id="dbid" placeholder="例: abcdef123456..." />
+
+    <button onclick="saveAndGo()">保存して開始</button>
+  </div>
 
   <script>
-    function saveToken() {
-      const token = document.getElementById('token-input').value;
-      if (token) {
-        localStorage.setItem("notion_token", token);
-        window.location.href = "/";
-      } else {
-        alert("トークンを入力してください");
+    function saveAndGo() {
+      const token = document.getElementById("token").value.trim();
+      const dbid = document.getElementById("dbid").value.trim();
+
+      if (!token || !dbid) {
+        alert("トークンとデータベースIDの両方を入力してください");
+        return;
       }
+
+      localStorage.setItem("notionToken", token);
+      localStorage.setItem("notionDbId", dbid);
+      window.location.href = "/scan";  // スキャン画面へ遷移
     }
   </script>
 </body>
