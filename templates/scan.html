@@ -122,16 +122,20 @@
               });
               const data = await response.json();
               if (data.status === "OK") {
-                const cover = data.cover || "";
                 bookInfo.innerHTML = `
-                  ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
-                  <ul>
-                    <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
-                    <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
-                    <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
-                    <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
-                  </ul>
-                `;
+  ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
+  <ul>
+    <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
+    <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
+    <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
+    <li><strong>💴 値段:</strong> ${data.price ? `${data.price} 円` : "情報なし"}</li>
+    <li><strong>📅 出版日:</strong> ${data.pub_date || "情報なし"}</li>
+    <li><strong>📄 ページ数:</strong> ${data.pages || "情報なし"}</li>
+    <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
+  </ul>
+`;
+
+                
               } else {
                 statusElement.textContent = `⚠️ エラー: ${data.message}`;
               }
