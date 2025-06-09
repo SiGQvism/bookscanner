@@ -1,7 +1,8 @@
 import requests
+import json
 
 def fetch_book_combined(isbn: str) -> dict:
-    data = {
+    result = {
         "isbn": isbn,
         "title": "",
         "author": "",
@@ -13,54 +14,61 @@ def fetch_book_combined(isbn: str) -> dict:
         "cover": ""
     }
 
-    # OpenBDから取得
+    # ========== OpenBD API ==========
     openbd_url = f"https://api.openbd.jp/v1/get?isbn={isbn}"
-    res = requests.get(openbd_url)
-    if res.status_code == 200 and res.json()[0] is not None:
-        ob = res.json()[0]
+    try:
+        res = requests.get(openbd_url)
+        if res.status_code == 200:
+            ob_data = res.json()[0]
+            if ob_data:
+                summary = ob_data.get("summary", {})
+                result["title"] = summary.get("title", "") or result["title"]
+                result["author"] = summary.get("author", "") or result["author"]
+                result["publisher"] = summary.get("publisher", "") or result["publisher"]
+                result["pub_date"] = summary.get("pubdate", "") or result["pub_date"]
+                result["cover"] = summary.get("cover", "") or result["cover"]
 
-        summary = ob.get("summary", {})
-        data.update({
-            "title": summary.get("title", ""),
-            "author": summary.get("author", ""),
-            "publisher": summary.get("publisher", ""),
-            "pub_date": summary.get("pubdate", ""),
-            "cover": summary.get("cover", "")
-        })
+                # ページ数（Extent → ExtentUnit=03）
+                extents = ob_data.get("onix", {}).get("DescriptiveDetail", {}).get("Extent", [])
+                if isinstance(extents, dict):  # 単体辞書の場合もある
+                    extents = [extents]
+                for ext in extents:
+                    if ext.get("ExtentUnit") == "03":
+                        result["pages"] = ext.get("ExtentValue", "")
+                        break
 
-        # Extent処理を強化
-        extent_info = data.get("onix", {}).get("DescriptiveDetail", {}).get("Extent", [])
+                # 値段（PriceAmount）
+                prices = ob_data.get("onix", {}).get("ProductSupply", {}).get("SupplyDetail", {}).get("Price", [])
+                if isinstance(prices, dict):  # これも単体辞書の場合あり
+                    prices = [prices]
+                for price in prices:
+                    amount = price.get("PriceAmount")
+                    if amount:
+                        result["price"] = amount
+                        break
+    except Exception as e:
+        print(f"❌ OpenBDエラー: {e}")
 
-        # Extentがdictの場合も対応
-        if isinstance(extent_info, dict):
-            extent_info = [extent_info]
-
-        for item in extent_info:
-            if item.get("ExtentUnit") == "03":
-                result["pages"] = item.get("ExtentValue", "")
-                break  # 最初に見つけたページ数を採用
-
-        # 価格
-        prices = ob.get("onix", {}).get("ProductSupply", {}).get("SupplyDetail", {}).get("Price", [])
-        if isinstance(prices, list) and prices:
-            data["price"] = prices[0].get("PriceAmount", "")
-
-    # Google Books 補完
+    # ========== Google Books Fallback ==========
     google_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
-    res = requests.get(google_url)
-    if res.status_code == 200 and res.json().get("totalItems", 0) > 0:
-        item = res.json()["items"][0]["volumeInfo"]
-        data.update({
-            "title": data["title"] or item.get("title", ""),
-            "author": data["author"] or ", ".join(item.get("authors", [])),
-            "publisher": data["publisher"] or item.get("publisher", ""),
-            "pub_date": data["pub_date"] or item.get("publishedDate", "").replace("-", ""),
-            "summary": data["summary"] or item.get("description", ""),
-            "cover": data["cover"] or item.get("imageLinks", {}).get("thumbnail", ""),
-            "pages": data["pages"] or str(item.get("pageCount", ""))
-        })
+    try:
+        res = requests.get(google_url)
+        if res.status_code == 200:
+            g_data = res.json()
+            if g_data["totalItems"] > 0:
+                item = g_data["items"][0]["volumeInfo"]
+                result["title"] = result["title"] or item.get("title", "")
+                result["author"] = result["author"] or ", ".join(item.get("authors", []))
+                result["publisher"] = result["publisher"] or item.get("publisher", "")
+                result["pub_date"] = result["pub_date"] or item.get("publishedDate", "").replace("-", "")
+                result["summary"] = result["summary"] or item.get("description", "")
+                result["cover"] = result["cover"] or item.get("imageLinks", {}).get("thumbnail", "")
+                result["pages"] = result["pages"] or str(item.get("pageCount", ""))
+    except Exception as e:
+        print(f"❌ Google Booksエラー: {e}")
 
-    if not data["title"] and not data["author"]:
+    # ========== 最低限のチェック ==========
+    if not result["title"] and not result["author"]:
         raise Exception("書籍情報が見つかりませんでした")
 
-    return data
+    return result
