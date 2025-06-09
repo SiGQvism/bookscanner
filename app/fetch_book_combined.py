@@ -28,13 +28,17 @@ def fetch_book_combined(isbn: str) -> dict:
             "cover": summary.get("cover", "")
         })
 
-        # ページ数（ExtentUnit:03 = ページ数）
-        extent_info = ob.get("onix", {}).get("DescriptiveDetail", {}).get("Extent", [])
-        if isinstance(extent_info, list):
-            for item in extent_info:
-                if item.get("ExtentUnit") == "03" and item.get("ExtentValue"):
-                    data["pages"] = item["ExtentValue"]
-                    break
+        # Extent処理を強化
+        extent_info = data.get("onix", {}).get("DescriptiveDetail", {}).get("Extent", [])
+
+        # Extentがdictの場合も対応
+        if isinstance(extent_info, dict):
+            extent_info = [extent_info]
+
+        for item in extent_info:
+            if item.get("ExtentUnit") == "03":
+                result["pages"] = item.get("ExtentValue", "")
+                break  # 最初に見つけたページ数を採用
 
         # 価格
         prices = ob.get("onix", {}).get("ProductSupply", {}).get("SupplyDetail", {}).get("Price", [])
