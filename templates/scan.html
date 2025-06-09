@@ -1,14 +1,13 @@
+```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ISBNスキャナ</title>
-
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" href="/static/isbn192.png" />
   <meta name="theme-color" content="#000000" />
-
   <style>
     body {
       margin: 0;
@@ -19,13 +18,11 @@
       flex-direction: column;
       align-items: center;
     }
-
     h1 {
       font-size: 2rem;
       color: #e0b0ff;
       margin: 1rem 0 0.5rem;
     }
-
     video {
       width: 90%;
       max-width: 500px;
@@ -33,7 +30,6 @@
       border-radius: 8px;
       box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
     }
-
     #status {
       font-size: 1.2rem;
       font-weight: bold;
@@ -41,7 +37,6 @@
       text-align: center;
       margin-top: 1.5rem;
     }
-
     #book-info {
       margin-top: 1rem;
       width: 90%;
@@ -52,7 +47,6 @@
       box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
       text-align: left;
     }
-
     #cover-img {
       display: block;
       margin: 0 auto 1rem;
@@ -60,22 +54,9 @@
       border-radius: 8px;
       box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
     }
-
-    ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-
-    li {
-      margin-bottom: 0.8rem;
-      line-height: 1.6;
-    }
-
-    strong {
-      color: #e0b0ff;
-    }
-
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { margin-bottom: 0.8rem; line-height: 1.6; }
+    strong { color: #e0b0ff; }
     #rescan-btn {
       margin: 1.5rem auto 2rem;
       padding: 0.6rem 1.4rem;
@@ -103,68 +84,50 @@
     const statusElement = document.getElementById("status");
     const bookInfo = document.getElementById("book-info");
     const rescanBtn = document.getElementById("rescan-btn");
-
     let lastIsbn = null;
     let stream = null;
 
     async function startScan() {
       try {
-        // 古いカメラストリーム停止
-        if (stream) {
-          stream.getTracks().forEach(track => track.stop());
-        }
-
+        if (stream) stream.getTracks().forEach(track => track.stop());
         codeReader.reset();
-
-        // iOS対応：外カメラ明示
-        const constraints = {
-          video: { facingMode: { exact: "environment" } },
-          audio: false
-        };
-
+        const constraints = { video: { facingMode: { exact: "environment" } }, audio: false };
         stream = await navigator.mediaDevices.getUserMedia(constraints);
         videoElement.srcObject = stream;
 
         codeReader.decodeFromStream(stream, videoElement, async (result, err) => {
           if (result) {
             const isbn = result.getText();
-            if (isbn === lastIsbn) return;
+            if (!isbn || isbn === lastIsbn) return;
             lastIsbn = isbn;
-
             statusElement.textContent = `✅ 登録完了`;
 
             const token = localStorage.getItem("notionToken");
             const dbid = localStorage.getItem("notionDbId");
+            const url = `/add/${isbn}?token=${encodeURIComponent(token)}&db=${encodeURIComponent(dbid)}`;
 
             try {
-              const response = await fetch(`/add/${isbn}`, {
-                headers: {
-                  "Authorization": `Bearer ${token}`,
-                  "X-Database-ID": dbid
-                }
-              });
-              const data = await response.json();
-
+              const res = await fetch(url);
+              const data = await res.json();
               if (data.status === "OK") {
-                const cover = data.cover || "";
                 bookInfo.innerHTML = `
-                  ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
+                  ${data.cover ? `<img id="cover-img" src="${data.cover}" alt="書影">` : ""}
                   <ul>
                     <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
                     <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
                     <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
                     <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
-                  </ul>
-                `;
+                  </ul>`;
               } else {
                 statusElement.textContent = `⚠️ エラー: ${data.message}`;
               }
-            } catch (e) {
+              rescanBtn.style.display = "block";
+            } catch {
               statusElement.textContent = `❌ 通信エラー`;
               bookInfo.innerHTML = "";
+              rescanBtn.style.display = "block";
             }
 
-            rescanBtn.style.display = "block";
             codeReader.reset();
             stream.getTracks().forEach(track => track.stop());
           }
