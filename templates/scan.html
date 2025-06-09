@@ -83,7 +83,22 @@
   <video id="camera" autoplay playsinline></video>
   <div id="status">📖 スキャン待機中…</div>
   <div id="book-info"></div>
+  <!-- bookInfoブロックの直後 -->
+  <div id="review-section" style="width: 90%; max-width: 600px; margin-top: 1.2rem; display: none;">
+    <label for="review-input"><strong>📝 書評を記入:</strong></label>
+    <textarea id="review-input" rows="4" style="width: 100%; margin-top: 0.4rem; padding: 0.6rem; border-radius: 6px;"></textarea>
+    <button id="review-submit-btn" style="margin-top: 0.6rem; padding: 0.6rem 1.2rem; background-color: #6a5acd; color: white; border: none; border-radius: 6px; cursor: pointer;">📬 書評を送信</button>
+  </div>
+
+  
+<!-- 🔽 書評欄を追加 -->
+<div style="margin-top: 1rem; width: 90%; max-width: 600px;">
+  <label for="review" style="display: block; margin-bottom: 0.4rem; font-weight: bold; color: #e0b0ff;">📝 書評（任意）:</label>
+  <textarea id="review" rows="3" style="width: 100%; padding: 0.5rem; border-radius: 6px; font-size: 1rem;"></textarea>
+</div>
+
   <button id="rescan-btn">🔄 再スキャン</button>
+
   <script src="https://unpkg.com/@zxing/library@latest"></script>
   <script>
     const codeReader = new ZXing.BrowserMultiFormatReader();
@@ -91,6 +106,43 @@
     const statusElement = document.getElementById("status");
     const bookInfo = document.getElementById("book-info");
     const rescanBtn = document.getElementById("rescan-btn");
+    const reviewSection = document.getElementById("review-section");
+    const reviewInput = document.getElementById("review-input");
+    const reviewSubmitBtn = document.getElementById("review-submit-btn");
+
+    let currentIsbn = null;
+
+    reviewSubmitBtn.addEventListener("click", async () => {
+      const token = localStorage.getItem("notionToken");
+      const dbid = localStorage.getItem("notionDbId");
+      const review = reviewInput.value.trim();
+
+      if (!review || !currentIsbn) {
+        statusElement.textContent = "⚠️ 書評またはISBNが空です";
+        return;
+      }
+
+      try {
+        const response = await fetch(`/review/${currentIsbn}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+            "X-Database-ID": dbid
+          },
+          body: JSON.stringify({ review })
+        });
+       const result = await response.json();
+       if (result.status === "OK") {
+         statusElement.textContent = "✅ 書評を登録しました！";
+       } else {
+         statusElement.textContent = `⚠️ エラー: ${result.message}`;
+       }
+     } catch (e) {
+       statusElement.textContent = "❌ 書評送信エラー";
+     }
+   });
+
     let lastIsbn = null;
     let stream = null;
 
@@ -110,16 +162,21 @@
             const isbn = result.getText();
             if (isbn === lastIsbn) return;
             lastIsbn = isbn;
+
             statusElement.textContent = `✅ 登録完了`;
             const token = localStorage.getItem("notionToken");
             const dbid = localStorage.getItem("notionDbId");
+            const review = reviewInput.value;
+
             try {
               const response = await fetch(`/add/${isbn}`, {
                 headers: {
                   "Authorization": `Bearer ${token}`,
                   "X-Database-ID": dbid
-                }
+                },
+                body: JSON.stringify({ review })
               });
+              
               const data = await response.json();
               if (data.status === "OK") {
                 const cover = data.cover || "";
@@ -135,6 +192,10 @@
                     <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
                     </ul>
                     `;
+                    reviewSection.style.display = "block";
+                    reviewInput.value = "";  // クリア
+                    currentIsbn = isbn;      // 書評送信用に保持
+
               } else {
                 statusElement.textContent = `⚠️ エラー: ${data.message}`;
               }
