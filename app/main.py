@@ -5,7 +5,8 @@ from fastapi.staticfiles import StaticFiles
 from jinja2 import Template
 from dotenv import load_dotenv
 from notion_client import Client
-from isbn import fetch_book
+from app.isbn import fetch_book
+
 
 load_dotenv()
 app = FastAPI()
