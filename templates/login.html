@@ -3,97 +3,98 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Notionログイン</title>
-  <link rel="manifest" href="/manifest.json" />
+  <title>🔐 Notion ログイン</title>
   <link rel="icon" href="/static/isbn192.png" />
   <meta name="theme-color" content="#000000" />
   <style>
     body {
-      margin: 0;
       background-color: #000;
       color: #fff;
       font-family: 'Arial', 'Hiragino Kaku Gothic ProN', sans-serif;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
+      justify-content: center;
       height: 100vh;
-    }
-
-    .login-box {
-      background-color: #111;
-      padding: 2rem;
-      border-radius: 12px;
-      box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
-      width: 90%;
-      max-width: 400px;
+      margin: 0;
     }
 
     h1 {
-      color: #d6a2e8;
-      text-align: center;
-      margin-bottom: 1.5rem;
+      color: #e0b0ff;
+      margin-bottom: 2rem;
     }
 
-    label {
-      display: block;
-      margin-top: 1rem;
-      font-size: 0.95rem;
-    }
-
-    input[type="text"],
-    input[type="password"] {
-      width: 100%;
-      padding: 0.6rem;
-      border-radius: 6px;
+    input {
+      width: 80%;
+      max-width: 400px;
+      padding: 0.8rem;
+      margin: 0.5rem 0;
       border: none;
-      margin-top: 0.3rem;
+      border-radius: 6px;
       font-size: 1rem;
-    }
-
-    input::placeholder {
-      color: #aaa;
     }
 
     button {
-      margin-top: 2rem;
-      width: 100%;
-      padding: 0.8rem;
-      background-color: #a166c1;
-      color: white;
+      margin-top: 1.2rem;
+      padding: 0.8rem 2rem;
       font-size: 1rem;
+      background-color: #8b508d;
       border: none;
+      color: white;
       border-radius: 6px;
       cursor: pointer;
+    }
+
+    p {
+      font-size: 0.9rem;
+      color: #ccc;
+      margin-top: 1.5rem;
+      max-width: 80%;
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <div class="login-box">
-    <h1>🔐 Notionログイン</h1>
+  <h1>🔐 Notion トークンログイン</h1>
 
-    <label for="token">🔑 トークン（secret_...）</label>
-    <input type="password" id="token" name="token" placeholder="secret_xxx..." autocomplete="on" required />
+  <input id="token" type="password" placeholder="Notion Token（機密）" autocomplete="off" />
+  <input id="dbid" type="text" placeholder="Database ID" autocomplete="off" />
 
-    <label for="dbid">📁 データベースID</label>
-    <input type="text" id="dbid" name="dbid" placeholder="例: abcdef123456..." autocomplete="on" required />
+  <button id="loginBtn">ログインして開始</button>
 
-    <button onclick="saveAndRedirect()">保存して開始</button>
-  </div>
+  <p>※ 入力内容はブラウザ内にのみ保存され、サーバーには送信されません。</p>
 
   <script>
-    function saveAndRedirect() {
-      const token = document.getElementById('token').value.trim();
-      const dbid = document.getElementById('dbid').value.trim();
+    const tokenInput = document.getElementById("token");
+    const dbidInput = document.getElementById("dbid");
+    const loginBtn = document.getElementById("loginBtn");
+
+    // 自動入力支援（iOSのパスワード自動入力に対応）
+    tokenInput.setAttribute("autocomplete", "current-password");
+    dbidInput.setAttribute("autocomplete", "username");
+
+    // 過去保存されていたら自動で復元
+    window.addEventListener("load", () => {
+      const savedToken = localStorage.getItem("notionToken");
+      const savedDbId = localStorage.getItem("notionDbId");
+      if (savedToken) tokenInput.value = savedToken;
+      if (savedDbId) dbidInput.value = savedDbId;
+    });
+
+    loginBtn.addEventListener("click", () => {
+      const token = tokenInput.value.trim();
+      const dbid = dbidInput.value.trim();
 
       if (!token || !dbid) {
-        alert("すべての項目を入力してください");
+        alert("トークンとDatabase IDを入力してください");
         return;
       }
 
       localStorage.setItem("notionToken", token);
       localStorage.setItem("notionDbId", dbid);
+
       window.location.href = "/scan";
-    }
+    });
   </script>
 </body>
 </html>
