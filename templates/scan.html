@@ -32,6 +32,15 @@
       box-shadow: 0 0 15px rgba(255, 192, 255, 0.3);
       margin: 1rem 0;
     }
+
+    .overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+      z-index: 2;
+    }
+
     #status {
       font-size: 1.2rem;
       font-weight: bold;
@@ -39,6 +48,43 @@
       text-align: center;
       margin-top: 1.5rem;
     }
+
+    .cutout {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 80%;
+      height: 120px;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+      border: 2px solid #00ffc8;
+      border-radius: 10px;
+
+      .scanner-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 80%;
+      height: 120px;
+      transform: translate(-50%, -50%);
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .scan-line {
+      position: absolute;
+      width: 100%;
+      height: 2px;
+      background: white(255, 0, 0, 0.8);
+      animation: scan-animation 2s infinite linear;
+    }
+
+    @keyframes scan-animation {
+      0% { top: 0; }
+      100% { top: 100%; }
+    }
+
     #book-info {
       margin-top: 1rem;
       width: 90%;
@@ -90,8 +136,13 @@
 </head>
 <body>
   <h1>📷 ISBN スキャナ</h1>
-  <video id="camera" autoplay playsinline></video>
-  <div id="status">📖 スキャン待機中…</div>
+  <video id="video" autoplay playsinline></video>
+  <!-- UI構成 -->
+  <!-- スキャンゾーン -->
+  <div class="overlay"><div class="cutout"></div></div>
+  <!-- アニメーションライン -->
+  <div class="scanner-overlay"><div class="scan-line"></div></div>
+  <p id="status">バーコードをかざしてください</p>
   <div id="book-info"></div>
 
   <!-- 🔽 書評欄 -->
@@ -188,6 +239,32 @@
     });
 
     window.addEventListener("load", startScan);
+
+    // カメラ起動時に torch（可能なら）を有効化
+    async function initCamera() {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        }
+      });
+
+      const video = document.getElementById("video");
+      video.srcObject = stream;
+
+      const track = stream.getVideoTracks()[0];
+      const capabilities = track.getCapabilities();
+      if (capabilities.torch) {
+        try {
+          await track.applyConstraints({ advanced: [{ torch: true }] });
+        } catch (e) {
+          console.log("Torch制御エラー:", e);
+        }
+      }
+    }
+
+    initCamera();
   </script>
 </body>
 </html>
