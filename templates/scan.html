@@ -103,77 +103,67 @@
   const statusElement = document.getElementById("status");
   const bookInfo = document.getElementById("book-info");
   const rescanBtn = document.getElementById("rescan-btn");
-  let selectedDeviceId = null;
   let lastIsbn = null;
+  let selectedDeviceId = null;
 
   function startScan() {
+    codeReader.reset();
 
-    const initScan = () => {
-      if (!selectedDeviceId) {
-        codeReader.listVideoInputDevices()
-          .then(videoInputDevices => {
-            const backCam = videoInputDevices.find(device =>
-              device.label.toLowerCase().includes("back")
-            );
-            selectedDeviceId = backCam ? backCam.deviceId : videoInputDevices[0]?.deviceId;
-            beginDecoding();
-          })
-          .catch(err => {
-            statusElement.textContent = `❌ カメラ取得エラー: ${err}`;
-          });
-      } else {
-        beginDecoding(); // 再利用
-      }
-    };
+    codeReader.listVideoInputDevices()
+      .then(videoInputDevices => {
+        const backCam = videoInputDevices.find(device =>
+          device.label.toLowerCase().includes("back")
+        );
+        selectedDeviceId = backCam ? backCam.deviceId : videoInputDevices[0]?.deviceId;
 
-    const beginDecoding = () => {
-      codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, err) => {
-        if (result) {
-          const isbn = result.getText();
-          if (isbn === lastIsbn) return;
-          lastIsbn = isbn;
+        codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, err) => {
+          if (result) {
+            const isbn = result.getText();
+            if (isbn === lastIsbn) return;
+            lastIsbn = isbn;
 
-          statusElement.textContent = `✅ 登録完了`;
+            statusElement.textContent = `✅ 登録完了`;
 
-          const token = localStorage.getItem("notionToken");
-          const dbid = localStorage.getItem("notionDbId");
+            const token = localStorage.getItem("notionToken");
+            const dbid = localStorage.getItem("notionDbId");
 
-          fetch(`/add/${isbn}`, {
-            headers: {
-              "Authorization": `Bearer ${token}`,
-              "X-Database-ID": dbid
-            }
-          })
-          .then(res => res.json())
-          .then(data => {
-            if (data.status === "OK") {
-              const cover = data.cover || "";
-              bookInfo.innerHTML = `
-                ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
-                <ul>
-                  <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
-                  <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
-                  <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
-                  <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
-                </ul>
-              `;
-            } else {
-              statusElement.textContent = `⚠️ エラー: ${data.message}`;
-            }
-            rescanBtn.style.display = "block";
-          })
-          .catch(() => {
-            statusElement.textContent = `❌ 通信エラー`;
-            bookInfo.innerHTML = "";
-            rescanBtn.style.display = "block";
-          });
+            fetch(`/add/${isbn}`, {
+              headers: {
+                "Authorization": `Bearer ${token}`,
+                "X-Database-ID": dbid
+              }
+            })
+              .then(res => res.json())
+              .then(data => {
+                if (data.status === "OK") {
+                  const cover = data.cover || "";
+                  bookInfo.innerHTML = `
+                    ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
+                    <ul>
+                      <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
+                      <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
+                      <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
+                      <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
+                    </ul>
+                  `;
+                } else {
+                  statusElement.textContent = `⚠️ エラー: ${data.message}`;
+                }
+                rescanBtn.style.display = "block";
+              })
+              .catch(() => {
+                statusElement.textContent = `❌ 通信エラー`;
+                bookInfo.innerHTML = "";
+                rescanBtn.style.display = "block";
+              });
 
-          codeReader.reset(); // スキャン停止
-        }
+            codeReader.reset();
+          }
+        });
+      })
+      .catch(err => {
+        statusElement.textContent = `❌ カメラ取得エラー: ${err}`;
       });
-    };
-
-    initScan();
   }
 
   rescanBtn.addEventListener("click", () => {
@@ -185,5 +175,6 @@
 
   window.addEventListener("load", startScan);
 </script>
+
 </body>
 </html>
