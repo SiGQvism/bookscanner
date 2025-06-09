@@ -100,83 +100,79 @@
   <button id="rescan-btn">🔄 再スキャン</button>
 
   <script src="https://unpkg.com/@zxing/library@latest"></script>
-  <script>
-    const codeReader = new ZXing.BrowserMultiFormatReader();
-    const videoElement = document.getElementById("camera");
-    const statusElement = document.getElementById("status");
-    const bookInfo = document.getElementById("book-info");
-    const rescanBtn = document.getElementById("rescan-btn");
-    let lastIsbn = null;
+<script>
+  const codeReader = new ZXing.BrowserMultiFormatReader();
+  const videoElement = document.getElementById("camera");
+  const statusElement = document.getElementById("status");
+  const bookInfo = document.getElementById("book-info");
+  const rescanBtn = document.getElementById("rescan-btn");
 
-    function startScan() {
-      codeReader.reset();
-      codeReader.listVideoInputDevices()
-        .then(devices => {
-          const selectedDeviceId = devices[0]?.deviceId;
-          codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, err) => {
-            if (result) {
-              const isbn = result.getText();
-              if (isbn === lastIsbn) return;
-              lastIsbn = isbn;
+  let lastIsbn = null;
+  let selectedDeviceId = null;  // ✅ カメラを保持する変数
 
-              statusElement.textContent = "✅ 登録完了";
+  async function startScan() {
+    codeReader.reset();
+    const devices = await codeReader.listVideoInputDevices();
 
-              fetch(`/add/${isbn}`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                  token: localStorage.getItem("notionToken"),
-                  db_id: localStorage.getItem("notionDbId")
-                })
-              })
-              .then(res => res.json())
-              .then(data => {
-                if (data.status === "OK") {
-                  const cover = data.cover || "";
-                  bookInfo.innerHTML = `
-                    ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
-                    <ul>
-                      <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
-                      <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
-                      <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
-                      <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
-                    </ul>
-                  `;
-                  rescanBtn.style.display = "block";
-                } else {
-                  statusElement.textContent = `⚠️ エラー: ${data.message}`;
-                }
-              })
-              .catch(() => {
-                statusElement.textContent = "❌ 通信エラー";
-                bookInfo.innerHTML = "";
-              });
-
-              codeReader.reset();
-            }
-          });
-        });
+    // ✅ 初回のみ、外カメラを優先して選択
+    if (!selectedDeviceId) {
+      const backCamera = devices.find(d => d.label.toLowerCase().includes("back"));
+      selectedDeviceId = backCamera?.deviceId || devices[0]?.deviceId;
     }
 
-    rescanBtn.addEventListener("click", () => {
-      bookInfo.innerHTML = "";
-      statusElement.textContent = "📖 スキャン待機中…";
-      rescanBtn.style.display = "none";
-      startScan();
-    });
+    codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, err) => {
+      if (result) {
+        const isbn = result.getText();
+        if (isbn === lastIsbn) return;
+        lastIsbn = isbn;
 
-    window.addEventListener("load", () => {
-      const token = localStorage.getItem("notionToken");
-      const dbid = localStorage.getItem("notionDbId");
-      if (!token || !dbid) {
-        alert("NotionトークンとDB IDが未設定です。ログインしてください。");
-        location.href = "/";
-      } else {
-        startScan();
+        statusElement.textContent = "✅ 登録完了";
+
+        fetch(`/add/${isbn}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            token: localStorage.getItem("notionToken"),
+            db_id: localStorage.getItem("notionDbId")
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === "OK") {
+            const cover = data.cover || "";
+            bookInfo.innerHTML = `
+              ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
+              <ul>
+                <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
+                <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
+                <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
+                <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
+              </ul>
+            `;
+            rescanBtn.style.display = "block";
+          } else {
+            statusElement.textContent = `⚠️ エラー: ${data.message}`;
+          }
+        })
+        .catch(() => {
+          statusElement.textContent = `❌ 通信エラー`;
+          bookInfo.innerHTML = "";
+        });
+
+        codeReader.reset();  // 自動停止
       }
     });
-  </script>
-</body>
-</html>
+  }
+
+  // ✅ 再スキャンボタン押下時にも同じ外カメラで再実行
+  rescanBtn.addEventListener("click", () => {
+    rescanBtn.style.display = "none";
+    bookInfo.innerHTML = "";
+    statusElement.textContent = "📖 スキャン待機中…";
+    startScan();
+  });
+
+  window.addEventListener("load", startScan);
+</script>

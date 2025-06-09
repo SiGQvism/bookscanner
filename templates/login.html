@@ -68,10 +68,10 @@
   <div class="login-box">
     <h1>🔐 Notionログイン</h1>
     <label for="token">🔑 トークン（secret_...）</label>
-    <input type="text" id="token" placeholder="secret_xxx..." />
+    <input type="text" id="token" placeholder="secret_xxx..." autocomplete="username"/>
 
     <label for="dbid">📁 データベースID</label>
-    <input type="text" id="dbid" placeholder="例: abcdef123456..." />
+    <input type="text" id="dbid" placeholder="例: abcdef123456..." autocomplete="current-password"/>
 
     <button onclick="saveAndGo()">保存して開始</button>
   </div>
@@ -90,6 +90,11 @@
       localStorage.setItem("notionDbId", dbid);
       window.location.href = "/scan";  // スキャン画面へ遷移
     }
+    window.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("token").value = localStorage.getItem("notionToken") || "";
+  document.getElementById("dbid").value = localStorage.getItem("notionDbId") || "";
+});
+
   </script>
 </body>
 </html>
