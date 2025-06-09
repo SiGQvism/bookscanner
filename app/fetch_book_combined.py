@@ -1,5 +1,4 @@
 import requests
-import json
 
 def fetch_book_combined(isbn: str) -> dict:
     data = {
@@ -14,14 +13,14 @@ def fetch_book_combined(isbn: str) -> dict:
         "cover": ""
     }
 
+    # OpenBDから取得
     openbd_url = f"https://api.openbd.jp/v1/get?isbn={isbn}"
     res = requests.get(openbd_url)
     if res.status_code == 200 and res.json()[0] is not None:
-        data = res.json()[0]
+        ob = res.json()[0]
 
-        # summaryから取得
-        summary = data.get("summary", {})
-        result.update({
+        summary = ob.get("summary", {})
+        data.update({
             "title": summary.get("title", ""),
             "author": summary.get("author", ""),
             "publisher": summary.get("publisher", ""),
@@ -29,32 +28,33 @@ def fetch_book_combined(isbn: str) -> dict:
             "cover": summary.get("cover", "")
         })
 
-        # onixからページ数と価格取得
-        extent_info = data.get("onix", {}).get("DescriptiveDetail", {}).get("Extent", [])
+        # ページ数（ExtentUnit:03 = ページ数）
+        extent_info = ob.get("onix", {}).get("DescriptiveDetail", {}).get("Extent", [])
         for item in extent_info:
             if item.get("ExtentUnit") == "03":
-                result["pages"] = item.get("ExtentValue")
+                data["pages"] = item.get("ExtentValue", "")
 
-        prices = data.get("onix", {}).get("ProductSupply", {}).get("SupplyDetail", {}).get("Price", [])
+        # 価格
+        prices = ob.get("onix", {}).get("ProductSupply", {}).get("SupplyDetail", {}).get("Price", [])
         if isinstance(prices, list) and prices:
-            result["price"] = prices[0].get("PriceAmount", "")
+            data["price"] = prices[0].get("PriceAmount", "")
 
     # Google Books 補完
     google_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
     res = requests.get(google_url)
-    if res.status_code == 200 and res.json()["totalItems"] > 0:
+    if res.status_code == 200 and res.json().get("totalItems", 0) > 0:
         item = res.json()["items"][0]["volumeInfo"]
-        result.update({
-            "title": result["title"] or item.get("title", ""),
-            "author": result["author"] or ", ".join(item.get("authors", [])),
-            "publisher": result["publisher"] or item.get("publisher", ""),
-            "pub_date": result["pub_date"] or item.get("publishedDate", "").replace("-", ""),
-            "summary": result["summary"] or item.get("description", ""),
-            "cover": result["cover"] or item.get("imageLinks", {}).get("thumbnail", ""),
-            "pages": result["pages"] or str(item.get("pageCount", "")),
+        data.update({
+            "title": data["title"] or item.get("title", ""),
+            "author": data["author"] or ", ".join(item.get("authors", [])),
+            "publisher": data["publisher"] or item.get("publisher", ""),
+            "pub_date": data["pub_date"] or item.get("publishedDate", "").replace("-", ""),
+            "summary": data["summary"] or item.get("description", ""),
+            "cover": data["cover"] or item.get("imageLinks", {}).get("thumbnail", ""),
+            "pages": data["pages"] or str(item.get("pageCount", ""))
         })
 
-    if not result["title"] and not result["author"]:
+    if not data["title"] and not data["author"]:
         raise Exception("書籍情報が見つかりませんでした")
 
-    return result
+    return data
