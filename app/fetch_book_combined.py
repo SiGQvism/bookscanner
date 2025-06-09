@@ -30,9 +30,11 @@ def fetch_book_combined(isbn: str) -> dict:
 
         # ページ数（ExtentUnit:03 = ページ数）
         extent_info = ob.get("onix", {}).get("DescriptiveDetail", {}).get("Extent", [])
-        for item in extent_info:
-            if item.get("ExtentUnit") == "03":
-                data["pages"] = item.get("ExtentValue", "")
+        if isinstance(extent_info, list):
+            for item in extent_info:
+                if item.get("ExtentUnit") == "03" and item.get("ExtentValue"):
+                    data["pages"] = item["ExtentValue"]
+                    break
 
         # 価格
         prices = ob.get("onix", {}).get("ProductSupply", {}).get("SupplyDetail", {}).get("Price", [])
