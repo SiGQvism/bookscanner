@@ -1,22 +1,23 @@
-# main.py
 import os
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
+from jinja2 import Template
 from notion_client import Client
 from .isbn import fetch_book
-from jinja2 import Template
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 
 load_dotenv()
+
 app = FastAPI()
 
-notion = Client(auth=os.getenv("NOTION_TOKEN"))
+# グローバルのDB ID（共通）
 DB = os.getenv("NOTION_DB")
 
+# 静的ファイル（CSSやJSなど）のマウント
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# --- PWA関連ルート ---
 @app.get("/manifest.json")
 def manifest():
     return FileResponse("static/manifest.json")
@@ -25,21 +26,31 @@ def manifest():
 def service_worker():
     return FileResponse("static/service-worker.js")
 
-# --- ルート：カメラページ表示 ---
+# --- トップページ（Notionトークン入力画面） ---
 @app.get("/", response_class=HTMLResponse)
-def camera_page():
+def index():
     with open("templates/index.html", encoding="utf-8") as f:
         return Template(f.read()).render()
 
-# --- ISBNスキャン時の処理 ---
-# --- ISBNスキャン → 書籍情報返却 ---
+# --- スキャン用ページ（カメラ + ISBN登録） ---
+@app.get("/scan", response_class=HTMLResponse)
+def scan():
+    with open("templates/scan.html", encoding="utf-8") as f:
+        return Template(f.read()).render()
+
+# --- 書籍登録API（Notionに登録） ---
 @app.get("/add/{isbn}")
-def add_book(isbn: str):
+async def add_book(isbn: str, request: Request):
     try:
+        token = request.headers.get("Authorization")
+        if not token:
+            return {"status": "NG", "message": "🔐 Notionトークンがありません"}
+
+        user_notion = Client(auth=token)
         data = fetch_book(isbn)
 
-        # 🔍 既存登録チェック
-        existing = notion.databases.query(
+        # --- 重複チェック ---
+        existing = user_notion.databases.query(
             **{
                 "database_id": DB,
                 "filter": {
@@ -50,9 +61,10 @@ def add_book(isbn: str):
                 }
             }
         )
-        if not existing["results"]:  # もし未登録なら
+
+        if not existing["results"]:
             try:
-                create_page(data)
+                create_page(data, user_notion)
             except Exception as ne:
                 print(f"Notion登録エラー: {ne}")
         else:
@@ -69,12 +81,13 @@ def add_book(isbn: str):
             "summary": data["summary"],
             "cover": data["cover"]
         }
+
     except Exception as e:
         return {"status": "NG", "message": str(e)}
 
 
-# --- Notionへの登録処理 ---
-def create_page(b):
+# --- Notion登録処理 ---
+def create_page(b, notion_client):
     props = {
         "タイトル": {"title": [{"text": {"content": b["title"]}}]},
         "著者":    {"rich_text": [{"text": {"content": b["author"]}}]},
@@ -85,11 +98,10 @@ def create_page(b):
         "要約":    {"rich_text": [{"text": {"content": b["summary"]}}]},
     }
 
-    # ✅ 画像URLがあれば「画像」プロパティに追加
     if b.get("cover"):
         props["画像"] = {"files": [{"name": "cover.jpg", "external": {"url": b["cover"]}}]}
 
-    notion.pages.create(
+    notion_client.pages.create(
         parent={"database_id": DB},
         properties=props
     )

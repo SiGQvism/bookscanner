@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ISBNスキャナ</title>
 
-  <!-- ✅ PWA設定 -->
+  <!-- ✅ PWA -->
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" href="/static/isbn192.png" />
   <meta name="theme-color" content="#000000" />
+
   <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/service-worker.js")
@@ -98,20 +99,6 @@
   </style>
 </head>
 <body>
-<div id="notion-login" style="margin-top: 1rem; padding: 1rem; background: #111; border-radius: 8px;">
-  <h2 style="color:#e0b0ff;">🔐 Notionログイン情報</h2>
-  <label>
-    🔑 トークン（secret_〜）:<br>
-    <input type="password" id="notion-token" style="width: 100%; margin-bottom: 0.5rem;">
-  </label><br>
-  <label>
-    📁 データベースID:<br>
-    <input type="text" id="notion-db-id" style="width: 100%; margin-bottom: 0.5rem;">
-  </label><br>
-  <button id="save-credentials">✅ 保存して開始</button>
-</div>
-
-
   <h1>📷 ISBN スキャナ</h1>
   <video id="camera" autoplay playsinline></video>
   <div id="status">📖 スキャン待機中…</div>
@@ -127,67 +114,71 @@
     const rescanBtn = document.getElementById('rescan-btn');
     let lastIsbn = null;
 
-    
-  document.getElementById("save-credentials").addEventListener("click", () => {
-    const token = document.getElementById("notion-token").value.trim();
-    const dbId = document.getElementById("notion-db-id").value.trim();
+    function startScan() {
+      const token = localStorage.getItem("notion_token");
+      if (!token) {
+        alert("Notionトークンが設定されていません。");
+        window.location.href = "/login";
+        return;
+      }
 
-    if (!token || !dbId) {
-      alert("トークンとデータベースIDを入力してください。");
-      return;
+      codeReader.reset();
+      codeReader
+        .listVideoInputDevices()
+        .then(videoInputDevices => {
+          const selectedDeviceId = videoInputDevices[0]?.deviceId;
+          codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, err) => {
+            if (result) {
+              const isbn = result.getText();
+              if (isbn === lastIsbn) return;
+              lastIsbn = isbn;
+              statusElement.textContent = `✅ 登録完了`;
+
+              fetch(`/add/${isbn}`, {
+                headers: {
+                  "Authorization": `Bearer ${token}`
+                }
+              })
+              .then(res => res.json())
+              .then(data => {
+                if (data.status === "OK") {
+                  const cover = data.cover || "";
+                  bookInfo.innerHTML = `
+                    ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
+                    <ul>
+                      <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
+                      <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
+                      <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
+                      <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
+                    </ul>
+                  `;
+                  rescanBtn.style.display = "block";
+                } else {
+                  statusElement.textContent = `⚠️ エラー: ${data.message}`;
+                }
+              })
+              .catch(() => {
+                statusElement.textContent = `❌ 通信エラー`;
+                bookInfo.innerHTML = "";
+              });
+
+              codeReader.reset();
+            }
+          });
+        })
+        .catch(err => {
+          statusElement.textContent = `❌ カメラアクセスエラー: ${err}`;
+        });
     }
 
-    localStorage.setItem("notionToken", token);
-    localStorage.setItem("notionDbId", dbId);
+    rescanBtn.addEventListener("click", () => {
+      rescanBtn.style.display = "none";
+      bookInfo.innerHTML = "";
+      statusElement.textContent = "📖 スキャン待機中…";
+      startScan();
+    });
 
-    alert("保存しました！スキャンを開始できます。");
-
-    document.getElementById("notion-login").style.display = "none";
-    startScan(); // スキャン開始
-  });
+    window.addEventListener("load", startScan);
   </script>
-    
-    function startScan() {
-      codeReader.reset();
-      codeReader.listVideoInputDevices().then(videoInputDevices => {
-        const selectedDeviceId = videoInputDevices[0]?.deviceId;
-        codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, err) => {
-          if (result) {
-            const isbn = result.getText();
-            if (isbn === lastIsbn) return;
-            lastIsbn = isbn;
-
-            statusElement.textContent = `✅ 登録完了`;
-
-            fetch(`/add/${isbn}`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    token: localStorage.getItem("notionToken"),
-    db_id: localStorage.getItem("notionDbId")
-  })
-})
-.then(res => res.json())
-.then(data => {
-  if (data.status === "OK") {
-    const cover = data.cover || "";
-    bookInfo.innerHTML = `
-      ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
-      <ul>
-        <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
-        <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
-        <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
-        <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
-      </ul>
-    `;
-    rescanBtn.style.display = "block";
-  } else {
-    statusElement.textContent = `⚠️ エラー: ${data.message}`;
-  }
-})
-.catch(() => {
-  statusElement.textContent = `❌ 通信エラー`;
-  bookInfo.innerHTML = "";
-});
+</body>
+</html>

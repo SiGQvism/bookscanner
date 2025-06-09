@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>🔐 Notionログイン</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #000;
+      color: #fff;
+      text-align: center;
+      padding-top: 5rem;
+    }
+    input, button {
+      padding: 0.7rem;
+      margin: 1rem;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔐 Notionログイン</h1>
+  <p>Notionのインテグレーショントークンを入力してください</p>
+  <input type="password" id="token-input" placeholder="secret_xxx..." />
+  <br>
+  <button onclick="saveToken()">ログイン</button>
+
+  <script>
+    function saveToken() {
+      const token = document.getElementById('token-input').value;
+      if (token) {
+        localStorage.setItem("notion_token", token);
+        window.location.href = "/";
+      } else {
+        alert("トークンを入力してください");
+      }
+    }
+  </script>
+</body>
+</html>
