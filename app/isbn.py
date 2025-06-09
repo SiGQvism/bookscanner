@@ -22,16 +22,23 @@ def fetch_book(isbn):
     openbd_url = f"https://api.openbd.jp/v1/get?isbn={isbn}"
     res = requests.get(openbd_url)
     if res.status_code == 200 and res.json()[0] is not None:
-        data = res.json()[0]["summary"]
+        item = res.json()[0]
+        summary = item["summary"]
+        price = ""
+        try:
+            price = item["onix"]["ProductSupply"]["SupplyDetail"]["Price"][0]["PriceAmount"]
+        except:
+            price = ""
+
         return {
-            "title": data.get("title", ""),
-            "author": data.get("author", ""),
-            "publisher": data.get("publisher", ""),
-            "pub_date": data.get("pubdate", ""),
-            "price": data.get("price", ""),
-            "pages": data.get("pages", ""),
-            "summary": data.get("volume", ""),  # fallbackとして使用
-            "cover": data.get("cover", ""),
+            "title": summary.get("title", ""),
+            "author": summary.get("author", ""),
+            "publisher": summary.get("publisher", ""),
+            "pub_date": summary.get("pubdate", ""),
+            "price": price,
+            "pages": summary.get("pages", ""),
+            "summary": summary.get("volume", ""),
+            "cover": summary.get("cover", ""),
             "isbn": isbn
         }
 
