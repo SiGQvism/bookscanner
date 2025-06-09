@@ -1,111 +1,104 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ISBNスキャナ</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="/static/isbn192.png" />
+  <meta name="theme-color" content="#000000" />
   <style>
     body {
       margin: 0;
-      background-color: black;
-      color: white;
-      font-family: sans-serif;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
+      font-family: 'Arial', 'Hiragino Kaku Gothic ProN', sans-serif;
+      background-color: #000;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
-
     h1 {
-      margin: 10px;
-      font-size: 1.5rem;
+      font-size: 2rem;
+      color: #e0b0ff;
+      margin: 1rem 0 0.5rem;
     }
-
     video {
-      width: 100vw;
-      height: 100vh;
+      width: 90%;
+      max-width: 500px;
+      height: 120px;
       object-fit: cover;
-      position: fixed;
-      top: 0;
-      left: 0;
-      z-index: 1;
+      border: 3px solid #e0b0ff;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(255, 192, 255, 0.3);
     }
-
-    /* 透過オーバーレイとスキャンゾーン */
-    .overlay {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      pointer-events: none;
-      z-index: 2;
-    }
-
-    .cutout {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 80%;
-      height: 120px;
-      transform: translate(-50%, -50%);
-      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
-      border: 2px solid #00ffc8;
-      border-radius: 10px;
-    }
-
-    /* 赤いアニメーションライン */
-    .scanner-overlay {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 80%;
-      height: 120px;
-      transform: translate(-50%, -50%);
-      overflow: hidden;
-      pointer-events: none;
-      z-index: 3;
-    }
-
-    .scan-line {
-      position: absolute;
-      width: 100%;
-      height: 2px;
-      background: rgba(255, 0, 0, 0.8);
-      animation: scan-animation 2s infinite linear;
-    }
-
-    @keyframes scan-animation {
-      0% { top: 0; }
-      100% { top: 100%; }
-    }
-
     #status {
-      position: absolute;
-      bottom: 20px;
-      width: 100%;
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #ffffff;
+      text-align: center;
+      margin-top: 1.5rem;
+    }
+    #book-info {
+      margin-top: 1rem;
+      width: 90%;
+      max-width: 600px;
+      background-color: #111;
+      border-radius: 8px;
+      padding: 1.2rem;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+      text-align: left;
+    }
+    #cover-img {
+      display: block;
+      margin: 0 auto 1rem;
+      max-width: 200px;
+      border-radius: 8px;
+      box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    li {
+      margin-bottom: 0.8rem;
+      line-height: 1.6;
+    }
+    strong {
+      color: #e0b0ff;
+    }
+    #rescan-btn {
+      margin: 1.5rem auto 2rem;
+      padding: 0.6rem 1.4rem;
+      background-color: #8b508d;
+      border: none;
+      color: white;
       font-size: 1rem;
-      z-index: 4;
-      text-shadow: 0 0 5px black;
+      border-radius: 6px;
+      cursor: pointer;
+      display: none;
+    }
+    #review-input {
+      width: 100%;
+      padding: 0.5rem;
+      border-radius: 6px;
+      font-size: 1rem;
+      margin-top: 0.5rem;
     }
   </style>
 </head>
-
+<body>
+  <h1>📷 ISBN スキャナ</h1>
+  <video id="camera" autoplay playsinline></video>
+  <div id="status">📖 スキャン待機中…</div>
+  <div id="book-info"></div>
 
   <!-- 🔽 書評欄 -->
   <div style="margin-top: 1rem; width: 90%; max-width: 600px;">
     <label for="review-input" style="display: block; margin-bottom: 0.4rem; font-weight: bold; color: #e0b0ff;">📝 書評（任意）:</label>
     <textarea id="review-input" rows="3"></textarea>
   </div>
-  <body>
-  <h1>📚 ISBNスキャナ</h1>
-  <video id="video" autoplay playsinline></video>
 
-  <!-- UI構成 -->
-  <div class="overlay">
-    <div class="cutout"></div>
-  </div>
-  <div class="scanner-overlay">
-    <div class="scan-line"></div>
-  </div>
-
-  <p id="status">バーコードをスキャンゾーンに合わせてください</p>
   <button id="rescan-btn">🔄 再スキャン</button>
 
   <script src="https://unpkg.com/@zxing/library@latest"></script>
@@ -194,36 +187,6 @@
     });
 
     window.addEventListener("load", startScan);
-
-    async function initCamera() {
-      const video = document.getElementById('video');
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { exact: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
-        });
-
-        video.srcObject = stream;
-
-        // Torch（懐中電灯）ON（対応デバイスのみ）
-        const track = stream.getVideoTracks()[0];
-        const capabilities = track.getCapabilities();
-        if (capabilities.torch) {
-          await track.applyConstraints({
-            advanced: [{ torch: true }]
-          });
-        }
-      } catch (err) {
-        document.getElementById('status').textContent = "カメラ起動に失敗しました";
-        console.error("Camera error:", err);
-      }
-    }
-
-    initCamera();
   </script>
 </body>
 </html>
