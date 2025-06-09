@@ -123,15 +123,13 @@
       }
 
       try {
-        const response = await fetch(`/review/${currentIsbn}`, {
-          method: "POST",
+        const response = await fetch(`/add/${isbn}`, {
           headers: {
-            "Content-Type": "application/json",
             "Authorization": `Bearer ${token}`,
             "X-Database-ID": dbid
-          },
-          body: JSON.stringify({ review })
+          }
         });
+
        const result = await response.json();
        if (result.status === "OK") {
          statusElement.textContent = "✅ 書評を登録しました！";
@@ -169,13 +167,16 @@
             const review = reviewInput.value;
 
             try {
-              const response = await fetch(`/add/${isbn}`, {
+              const response = await fetch(`/review/${currentIsbn}`, {
+                method: "POST",
                 headers: {
+                  "Content-Type": "application/json",
                   "Authorization": `Bearer ${token}`,
                   "X-Database-ID": dbid
                 },
                 body: JSON.stringify({ review })
               });
+
               
               const data = await response.json();
               if (data.status === "OK") {

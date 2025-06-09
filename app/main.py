@@ -1,12 +1,12 @@
 import os
-from fastapi import FastAPI, Request, Header, Form
+from fastapi import FastAPI, Request, Header, Form, Body
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Template
 from dotenv import load_dotenv
 from notion_client import Client
 from .fetch_book_combined import fetch_book_combined as fetch_book
-from fastapi import Body
+from fastapi.responses import JSONResponse
 
 load_dotenv()
 app = FastAPI()
@@ -83,7 +83,7 @@ def scan_page():
     with open("templates/scan.html", encoding="utf-8") as f:
         return Template(f.read()).render()
 
-@app.post("/add/{isbn}")
+@app.post("/add/{isbn}", response_class=JSONResponse)
 def add_book(isbn: str, review: str = Form(""), authorization: str = Header(None), x_database_id: str = Header(None)):
     try:
         if not authorization or not x_database_id:
@@ -147,7 +147,9 @@ def create_page(notion, db, b):
         props["画像"] = {"files": [{"name": "cover.jpg", "external": {"url": b["cover"]}}]}
 
     if b.get("review"):
-        props["書評"] = {"rich_text": [{"text": {"content": b["review"]}}]}
+        props["書評"] = {
+            "rich_text": [{"text": {"content": b["review"]}}]
+        }
 
     notion.pages.create(
         parent={"database_id": db},
