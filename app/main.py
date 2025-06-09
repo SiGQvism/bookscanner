@@ -1,71 +1,102 @@
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from notion_client import Client
-from app.fetch_book_combined import fetch_book_combined
 import os
+from fastapi import FastAPI, Request, Header
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from jinja2 import Template
+from dotenv import load_dotenv
+from notion_client import Client
+from .fetch_book_combined import fetch_book_combined as fetch_book
 
+load_dotenv()
 app = FastAPI()
 
-# 静的ファイルとテンプレート
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-templates = Jinja2Templates(directory="app/templates")
+# Static file mount
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# 📄 HTMLページのルーティング
+@app.get("/manifest.json")
+def manifest():
+    return FileResponse("static/manifest.json")
+
+@app.get("/service-worker.js")
+def service_worker():
+    return FileResponse("static/service-worker.js")
+
+# HTML page routing
 @app.get("/", response_class=HTMLResponse)
-async def login(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+def login_page():
+    with open("templates/login.html", encoding="utf-8") as f:
+        return Template(f.read()).render()
 
 @app.get("/scan", response_class=HTMLResponse)
-async def scan(request: Request):
-    return templates.TemplateResponse("scan.html", {"request": request})
+def scan_page():
+    with open("templates/scan.html", encoding="utf-8") as f:
+        return Template(f.read()).render()
 
-# 📚 書籍情報取得（ISBN）
-@app.get("/book")
-async def get_book(isbn: str):
+# API endpoint for adding book to Notion
+@app.get("/add/{isbn}")
+def add_book(isbn: str, authorization: str = Header(None), x_database_id: str = Header(None)):
     try:
-        result = fetch_book_combined(isbn)
-        return JSONResponse(content=result)
-    except Exception as e:
-        return JSONResponse(status_code=404, content={"error": str(e)})
+        if not authorization or not x_database_id:
+            return {"status": "NG", "message": "Missing Notion token or database ID"}
 
-# 📝 Notionへの登録エンドポイント
-@app.post("/notion")
-async def add_to_notion(
-    isbn: str = Form(...),
-    title: str = Form(...),
-    author: str = Form(...),
-    publisher: str = Form(...),
-    pub_date: str = Form(...),
-    pages: str = Form(...),
-    price: str = Form(...),
-    summary: str = Form(...),
-    cover: str = Form(...),
-    token: str = Form(...),
-    database_id: str = Form(...)
-):
-    try:
+        token = authorization.replace("Bearer ", "")
         notion = Client(auth=token)
-        notion.pages.create(
-            parent={"database_id": database_id},
-            properties={
-                "書名": {"title": [{"text": {"content": title}}]},
-                "著者": {"rich_text": [{"text": {"content": author}}]},
-                "出版社": {"rich_text": [{"text": {"content": publisher}}]},
-                "出版日": {"rich_text": [{"text": {"content": pub_date}}]},
-                "ページ数": {"number": int(pages) if pages.isdigit() else None},
-                "価格": {"rich_text": [{"text": {"content": price}}]},
-                "ISBN": {"rich_text": [{"text": {"content": isbn}}]},
-                "要約": {"rich_text": [{"text": {"content": summary}}]},
-                "カバー画像": {
-                    "files": [{
-                        "name": "cover.jpg",
-                        "external": {"url": cover}
-                    }] if cover else []
+        db = x_database_id
+
+        data = fetch_book(isbn)
+
+        # Check for existing record
+        existing = notion.databases.query(
+            **{
+                "database_id": db,
+                "filter": {
+                    "property": "ISBN",
+                    "rich_text": {
+                        "equals": data["isbn"]
+                    }
                 }
             }
         )
-        return {"message": "登録完了"}
+
+        if not existing["results"]:
+            try:
+                create_page(notion, db, data)
+            except Exception as ne:
+                return {"status": "NG", "message": f"Notion登録エラー: {ne}"}
+        else:
+            print(f"⚠️ 既に登録済み: ISBN {data['isbn']}")
+
+        return {
+            "status": "OK",
+            "title": data["title"],
+            "author": data["author"],
+            "publisher": data["publisher"],
+            "pub_date": data["pub_date"],
+            "price": data["price"],
+            "pages": data["pages"],
+            "summary": data["summary"],
+            "cover": data["cover"]
+        }
+
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        return {"status": "NG", "message": str(e)}
+
+
+def create_page(notion, db, b):
+    props = {
+        "タイトル": {"title": [{"text": {"content": b["title"]}}]},
+        "著者": {"rich_text": [{"text": {"content": b["author"]}}]},
+        "ISBN": {"rich_text": [{"text": {"content": b["isbn"]}}]},
+        "値段": {"number": int(b["price"])} if b["price"].isdigit() else {"number": None},
+        "出版日": {"date": {"start": f"{b['pub_date'][:4]}-{b['pub_date'][4:6]}-01"}} if b["pub_date"] else {"date": None},
+        "ページ数": {"number": int(b["pages"])} if b["pages"].isdigit() else {"number": None},
+        "要約": {"rich_text": [{"text": {"content": b["summary"]}}]},
+    }
+
+    if b.get("cover"):
+        props["画像"] = {"files": [{"name": "cover.jpg", "external": {"url": b["cover"]}}]}
+
+    notion.pages.create(
+        parent={"database_id": db},
+        properties=props
+    )
