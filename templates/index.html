@@ -83,6 +83,18 @@
     strong {
       color: #e0b0ff;
     }
+
+    #rescan-btn {
+      margin: 1.5rem auto 2rem;
+      padding: 0.6rem 1.4rem;
+      background-color: #8b508d;
+      border: none;
+      color: white;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -90,6 +102,7 @@
   <video id="camera" autoplay playsinline></video>
   <div id="status">📖 スキャン待機中…</div>
   <div id="book-info"></div>
+  <button id="rescan-btn">🔄 再スキャン</button>
 
   <script src="https://unpkg.com/@zxing/library@latest"></script>
   <script>
@@ -97,13 +110,14 @@
     const videoElement = document.getElementById('camera');
     const statusElement = document.getElementById('status');
     const bookInfo = document.getElementById('book-info');
+    const rescanBtn = document.getElementById('rescan-btn');
     let lastIsbn = null;
 
-    codeReader
-      .listVideoInputDevices()
-      .then(videoInputDevices => {
+    function startScan() {
+      codeReader.reset();
+      codeReader.listVideoInputDevices().then(videoInputDevices => {
         const selectedDeviceId = videoInputDevices[0]?.deviceId;
-        return codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, err) => {
+        codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, err) => {
           if (result) {
             const isbn = result.getText();
             if (isbn === lastIsbn) return;
@@ -115,7 +129,7 @@
               .then(res => res.json())
               .then(data => {
                 if (data.status === "OK") {
-                  const cover = data.image || "";
+                  const cover = data.cover || "";
                   bookInfo.innerHTML = `
                     ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
                     <ul>
@@ -125,9 +139,9 @@
                       <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
                     </ul>
                   `;
+                  rescanBtn.style.display = "block";
                 } else {
                   statusElement.textContent = `⚠️ エラー: ${data.message}`;
-                  bookInfo.innerHTML = "";
                 }
               })
               .catch(() => {
@@ -135,13 +149,22 @@
                 bookInfo.innerHTML = "";
               });
 
-            setTimeout(() => codeReader.reset(), 2000);
+            codeReader.reset();
           }
         });
-      })
-      .catch(err => {
+      }).catch(err => {
         statusElement.textContent = `❌ カメラアクセスエラー: ${err}`;
       });
+    }
+
+    rescanBtn.addEventListener("click", () => {
+      rescanBtn.style.display = "none";
+      bookInfo.innerHTML = "";
+      statusElement.textContent = "📖 スキャン待機中…";
+      startScan();
+    });
+
+    window.addEventListener("load", startScan);
   </script>
 </body>
 </html>
