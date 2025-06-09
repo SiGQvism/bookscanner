@@ -97,99 +97,92 @@
   <button id="rescan-btn">🔄 再スキャン</button>
 
   <script src="https://unpkg.com/@zxing/library@latest"></script>
-<script>
-  const codeReader = new ZXing.BrowserMultiFormatReader();
-  const videoElement = document.getElementById("camera");
-  const statusElement = document.getElementById("status");
-  const bookInfo = document.getElementById("book-info");
-  const rescanBtn = document.getElementById("rescan-btn");
+  <script>
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+    const videoElement = document.getElementById("camera");
+    const statusElement = document.getElementById("status");
+    const bookInfo = document.getElementById("book-info");
+    const rescanBtn = document.getElementById("rescan-btn");
 
-  let lastIsbn = null;
-  let selectedDeviceId = null;
-  let stream = null;
+    let lastIsbn = null;
+    let stream = null;
 
-  async function startScan() {
-    // カメラストップ
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
+    async function startScan() {
+      try {
+        // 古いカメラストリーム停止
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+        }
 
-    codeReader.reset();
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(d => d.kind === "videoinput");
+        codeReader.reset();
 
-      // 外カメラを優先（ラベルにbackを含むもの）
-      const backCam = videoDevices.find(d => d.label.toLowerCase().includes("back"));
-      selectedDeviceId = backCam ? backCam.deviceId : videoDevices[0]?.deviceId;
+        // iOS対応：外カメラ明示
+        const constraints = {
+          video: { facingMode: { exact: "environment" } },
+          audio: false
+        };
 
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: selectedDeviceId } },
-        audio: false
-      });
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        videoElement.srcObject = stream;
 
-      videoElement.srcObject = stream;
+        codeReader.decodeFromStream(stream, videoElement, async (result, err) => {
+          if (result) {
+            const isbn = result.getText();
+            if (isbn === lastIsbn) return;
+            lastIsbn = isbn;
 
-      codeReader.decodeFromStream(stream, videoElement, async (result, err) => {
-        if (result) {
-          const isbn = result.getText();
-          if (isbn === lastIsbn) return;
-          lastIsbn = isbn;
+            statusElement.textContent = `✅ 登録完了`;
 
-          statusElement.textContent = `✅ 登録完了`;
+            const token = localStorage.getItem("notionToken");
+            const dbid = localStorage.getItem("notionDbId");
 
-          const token = localStorage.getItem("notionToken");
-          const dbid = localStorage.getItem("notionDbId");
+            try {
+              const response = await fetch(`/add/${isbn}`, {
+                headers: {
+                  "Authorization": `Bearer ${token}`,
+                  "X-Database-ID": dbid
+                }
+              });
+              const data = await response.json();
 
-          try {
-            const response = await fetch(`/add/${isbn}`, {
-              headers: {
-                "Authorization": `Bearer ${token}`,
-                "X-Database-ID": dbid
+              if (data.status === "OK") {
+                const cover = data.cover || "";
+                bookInfo.innerHTML = `
+                  ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
+                  <ul>
+                    <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
+                    <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
+                    <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
+                    <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
+                  </ul>
+                `;
+              } else {
+                statusElement.textContent = `⚠️ エラー: ${data.message}`;
               }
-            });
-            const data = await response.json();
-
-            if (data.status === "OK") {
-              const cover = data.cover || "";
-              bookInfo.innerHTML = `
-                ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
-                <ul>
-                  <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
-                  <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
-                  <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
-                  <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
-                </ul>
-              `;
-            } else {
-              statusElement.textContent = `⚠️ エラー: ${data.message}`;
+            } catch (e) {
+              statusElement.textContent = `❌ 通信エラー`;
+              bookInfo.innerHTML = "";
             }
 
-          } catch (e) {
-            statusElement.textContent = `❌ 通信エラー`;
-            bookInfo.innerHTML = "";
+            rescanBtn.style.display = "block";
+            codeReader.reset();
+            stream.getTracks().forEach(track => track.stop());
           }
+        });
 
-          rescanBtn.style.display = "block";
-          codeReader.reset();
-          stream.getTracks().forEach(t => t.stop());
-        }
-      });
-
-    } catch (err) {
-      statusElement.textContent = `❌ カメラアクセスエラー: ${err}`;
+      } catch (err) {
+        statusElement.textContent = `❌ カメラ起動エラー: ${err}`;
+      }
     }
-  }
 
-  rescanBtn.addEventListener("click", () => {
-    rescanBtn.style.display = "none";
-    bookInfo.innerHTML = "";
-    statusElement.textContent = "📖 スキャン待機中…";
-    startScan();
-  });
+    rescanBtn.addEventListener("click", () => {
+      rescanBtn.style.display = "none";
+      bookInfo.innerHTML = "";
+      statusElement.textContent = "📖 スキャン待機中…";
+      startScan();
+    });
 
-  window.addEventListener("load", startScan);
-</script>
-
+    window.addEventListener("load", startScan);
+  </script>
 </body>
 </html>
