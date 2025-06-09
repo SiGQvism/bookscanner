@@ -18,79 +18,68 @@
       justify-content: center;
       height: 100vh;
     }
-
-    .login-box {
+    .container {
       background-color: #111;
       padding: 2rem;
       border-radius: 12px;
-      box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
       max-width: 400px;
       width: 90%;
-    }
-
-    h2 {
-      color: #e0b0ff;
       text-align: center;
-      margin-bottom: 1.5rem;
     }
-
+    h1 {
+      color: #e0b0ff;
+      margin-bottom: 1.5rem;
+      font-size: 1.8rem;
+    }
     label {
       display: block;
-      margin-bottom: 0.5rem;
+      margin: 1rem 0 0.5rem;
+      text-align: left;
       font-weight: bold;
     }
-
-    input {
+    input[type="text"], input[type="password"] {
       width: 100%;
       padding: 0.6rem;
-      margin-bottom: 1.2rem;
-      border: none;
       border-radius: 6px;
+      border: none;
+      background: #222;
+      color: #fff;
       font-size: 1rem;
     }
-
-    #start-btn {
-      background-color: #a566b6;
+    input::placeholder {
+      color: #888;
+    }
+    button {
+      margin-top: 1.5rem;
+      padding: 0.8rem 1.5rem;
+      font-size: 1rem;
+      background-color: #a463c1;
       color: white;
       border: none;
-      padding: 0.8rem;
       border-radius: 6px;
-      font-size: 1rem;
-      width: 100%;
       cursor: pointer;
-    }
-
-    #start-btn:hover {
-      background-color: #914c9b;
+      width: 100%;
     }
   </style>
 </head>
 <body>
-  <div class="login-box">
-    <h2>🔐 Notionログイン</h2>
-    <form id="login-form" autocomplete="on">
-      <label for="token">🔑 トークン（secret_...）</label>
-      <input type="password" id="token" name="token" placeholder="secret_xxx..." autocomplete="current-password" required />
-
-      <label for="dbid">📁 データベースID</label>
-      <input type="text" id="dbid" name="dbid" placeholder="例: abcdef123456..." autocomplete="username" required />
-
-      <button type="submit" id="start-btn">保存して開始</button>
-    </form>
+  <div class="container">
+    <h1>🔐 Notionログイン</h1>
+    <label for="token">🔑 トークン（secret_...）</label>
+    <input id="token" type="password" placeholder="secret_xxx..." autocomplete="on" />
+    <label for="dbid">📁 データベースID</label>
+    <input id="dbid" type="text" placeholder="例: abcdef123456..." autocomplete="on" />
+    <button onclick="saveAndRedirect()">保存して開始</button>
   </div>
-
   <script>
-    document.getElementById("login-form").addEventListener("submit", function (e) {
-      e.preventDefault();
+    function saveAndRedirect() {
       const token = document.getElementById("token").value;
       const dbid = document.getElementById("dbid").value;
-
-      if (token && dbid) {
-        localStorage.setItem("notionToken", token);
-        localStorage.setItem("notionDbId", dbid);
-        window.location.href = "/scan";
-      }
-    });
+      localStorage.setItem("notionToken", token);
+      localStorage.setItem("notionDbId", dbid);
+      window.location.href = "/scan";
+    }
   </script>
 </body>
 </html>

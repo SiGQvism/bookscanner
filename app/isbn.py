@@ -1,44 +1,38 @@
 import requests
 
-def fetch_book(isbn: str) -> dict:
-    isbn = isbn.replace("-", "")
-    data = {}
-
-    # --- OpenBDから取得 ---
+def fetch_book(isbn):
+    # OpenBD API
     openbd_url = f"https://api.openbd.jp/v1/get?isbn={isbn}"
     res = requests.get(openbd_url)
-    if res.status_code == 200:
-        items = res.json()
-        if items and items[0] is not None:
-            summary = items[0]["summary"]
-            data["title"] = summary.get("title", "")
-            data["author"] = summary.get("author", "")
-            data["publisher"] = summary.get("publisher", "")
-            data["pub_date"] = summary.get("pubdate", "")
-            data["cover"] = summary.get("cover", "")
-            data["isbn"] = isbn
-            data["price"] = ""
-            data["pages"] = ""
-            data["summary"] = ""
-            return data  # ✅ 成功時ここで終了
+    if res.status_code == 200 and res.json()[0] is not None:
+        data = res.json()[0]["summary"]
+        return {
+            "title": data.get("title", ""),
+            "author": data.get("author", ""),
+            "publisher": data.get("publisher", ""),
+            "pub_date": data.get("pubdate", ""),
+            "price": data.get("price", ""),
+            "pages": data.get("pages", ""),
+            "summary": data.get("volume", ""),
+            "cover": data.get("cover", ""),
+            "isbn": isbn
+        }
 
-    # --- Google Books API で補完 ---
-    gb_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
-    res = requests.get(gb_url)
-    if res.status_code == 200:
-        items = res.json().get("items")
-        if items:
-            volume = items[0]["volumeInfo"]
-            data["title"] = volume.get("title", "")
-            data["author"] = ", ".join(volume.get("authors", []))
-            data["publisher"] = volume.get("publisher", "")
-            data["pub_date"] = volume.get("publishedDate", "").replace("-", "")
-            data["cover"] = volume.get("imageLinks", {}).get("thumbnail", "")
-            data["summary"] = volume.get("description", "")
-            data["pages"] = str(volume.get("pageCount", ""))
-            data["price"] = ""
-            data["isbn"] = isbn
-            return data
+    # Google Books API fallback
+    google_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
+    res = requests.get(google_url)
+    if res.status_code == 200 and res.json()["totalItems"] > 0:
+        item = res.json()["items"][0]["volumeInfo"]
+        return {
+            "title": item.get("title", ""),
+            "author": ", ".join(item.get("authors", [])),
+            "publisher": item.get("publisher", ""),
+            "pub_date": item.get("publishedDate", "").replace("-", ""),
+            "price": "0",  # Google Booksには価格情報がない
+            "pages": str(item.get("pageCount", "")),
+            "summary": item.get("description", ""),
+            "cover": item.get("imageLinks", {}).get("thumbnail", ""),
+            "isbn": isbn
+        }
 
-    # --- 失敗時 ---
-    raise ValueError("書籍情報を取得できませんでした。")
+    raise Exception("書籍情報が見つかりませんでした")

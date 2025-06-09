@@ -1,9 +1,8 @@
-```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ISBNスキャナ</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" href="/static/isbn192.png" />
@@ -54,9 +53,18 @@
       border-radius: 8px;
       box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
     }
-    ul { list-style: none; padding: 0; margin: 0; }
-    li { margin-bottom: 0.8rem; line-height: 1.6; }
-    strong { color: #e0b0ff; }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    li {
+      margin-bottom: 0.8rem;
+      line-height: 1.6;
+    }
+    strong {
+      color: #e0b0ff;
+    }
     #rescan-btn {
       margin: 1.5rem auto 2rem;
       padding: 0.6rem 1.4rem;
@@ -76,7 +84,6 @@
   <div id="status">📖 スキャン待機中…</div>
   <div id="book-info"></div>
   <button id="rescan-btn">🔄 再スキャン</button>
-
   <script src="https://unpkg.com/@zxing/library@latest"></script>
   <script>
     const codeReader = new ZXing.BrowserMultiFormatReader();
@@ -91,48 +98,52 @@
       try {
         if (stream) stream.getTracks().forEach(track => track.stop());
         codeReader.reset();
-        const constraints = { video: { facingMode: { exact: "environment" } }, audio: false };
+        const constraints = {
+          video: { facingMode: { exact: "environment" } },
+          audio: false
+        };
         stream = await navigator.mediaDevices.getUserMedia(constraints);
         videoElement.srcObject = stream;
 
         codeReader.decodeFromStream(stream, videoElement, async (result, err) => {
           if (result) {
             const isbn = result.getText();
-            if (!isbn || isbn === lastIsbn) return;
+            if (isbn === lastIsbn) return;
             lastIsbn = isbn;
             statusElement.textContent = `✅ 登録完了`;
-
             const token = localStorage.getItem("notionToken");
             const dbid = localStorage.getItem("notionDbId");
-            const url = `/add/${isbn}?token=${encodeURIComponent(token)}&db=${encodeURIComponent(dbid)}`;
-
             try {
-              const res = await fetch(url);
-              const data = await res.json();
+              const response = await fetch(`/add/${isbn}`, {
+                headers: {
+                  "Authorization": `Bearer ${token}`,
+                  "X-Database-ID": dbid
+                }
+              });
+              const data = await response.json();
               if (data.status === "OK") {
+                const cover = data.cover || "";
                 bookInfo.innerHTML = `
-                  ${data.cover ? `<img id="cover-img" src="${data.cover}" alt="書影">` : ""}
+                  ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
                   <ul>
                     <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
                     <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
                     <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
                     <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
-                  </ul>`;
+                  </ul>
+                `;
               } else {
                 statusElement.textContent = `⚠️ エラー: ${data.message}`;
               }
-              rescanBtn.style.display = "block";
-            } catch {
+            } catch (e) {
               statusElement.textContent = `❌ 通信エラー`;
               bookInfo.innerHTML = "";
-              rescanBtn.style.display = "block";
             }
-
+            rescanBtn.style.display = "block";
             codeReader.reset();
             stream.getTracks().forEach(track => track.stop());
           }
         });
-
       } catch (err) {
         statusElement.textContent = `❌ カメラ起動エラー: ${err}`;
       }
