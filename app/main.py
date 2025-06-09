@@ -7,8 +7,6 @@ from dotenv import load_dotenv
 from notion_client import Client
 from .isbn import fetch_book
 
-
-
 load_dotenv()
 app = FastAPI()
 
