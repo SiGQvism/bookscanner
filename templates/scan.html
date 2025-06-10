@@ -162,15 +162,18 @@
           if (result && cvReady) {
             const isbn = result.getText();
             if (isbn === lastIsbn) return;
-            lastIsbn = isbn;S
+            lastIsbn = isbn;
 
-            videoElement.onloadedmetadata = () => {
-              canvas.width = videoElement.videoWidth;
-              canvas.height = videoElement.videoHeight;
-            };
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height); // ←これが必要
 
             let src = cv.imread(canvas);
             console.log(canvas.toDataURL());  // Base64の画像として出力されるか？
+            if (!cv || !cv.imread) {
+              console.error("❌ OpenCVの読み込みに失敗または未完了");
+              return;
+            }
+
+
 
             const scanFrame = document.getElementById("scan-frame").getBoundingClientRect();
             const videoRect = videoElement.getBoundingClientRect();
