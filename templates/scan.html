@@ -25,8 +25,8 @@
     #video-wrapper {
       position: relative;
       width: 90%;
-      max-width: 500px;
-      height: 120px;
+      max-width: 640px;
+      height: 240px;
       margin-top: 1rem;
     }
     video {
@@ -161,7 +161,9 @@
       codeReader.decodeFromStream(stream, videoElement, async (result, err) => {
         console.log("📸 fired", {result,err});
         if (!result || !cvReady) return;
-
+        const hints = new Map();
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+        codeReader.setHints(hints);
         const isbn = result.getText();
         if (isbn === lastIsbn) return;
         lastIsbn = isbn;                          /* 重複読み取り防止 */
@@ -175,12 +177,11 @@
         const sf   = document.getElementById("scan-frame").getBoundingClientRect();
         const sX   = canvas.width  / vf.width;
         const sY   = canvas.height / vf.height;
-        const roi  = new cv.Rect(
-          Math.round((sf.left - vf.left)*sX),
-          Math.round((sf.top  - vf.top )*sY),
-          Math.round(sf.width *sX),
-          Math.round(sf.height*sY)
-        );
+        const barcodeRect = new cv.Rect();   // ← 生成
+        arcodeRect.x = x|0;                 // すべて整数に
+        barcodeRect.y = y|0;
+        barcodeRect.width  = w|0;
+        barcodeRect.height = h|0;
         const src  = cv.imread(canvas);
         const crop = src.roi(roi);   /* ここで OpenCV を使う場合は crop を処理 */
         crop.delete(); src.delete();
