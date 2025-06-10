@@ -149,9 +149,12 @@
       try {
         if (stream) stream.getTracks().forEach(track => track.stop());
         codeReader.reset();
+        // constraints の部分をこう変更
         const constraints = {
-          video: { facingMode: { exact: "environment" } },
+          video: true,
           audio: false
+        };
+
         };
         stream = await navigator.mediaDevices.getUserMedia(constraints);
         videoElement.srcObject = stream;
