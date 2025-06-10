@@ -142,106 +142,117 @@
     let stream = null;
 
     async function startScan() {
-  try {
-    if (stream) stream.getTracks().forEach(track => track.stop());
-    codeReader.reset();
+      try {
+        if (stream) stream.getTracks().forEach(track => track.stop());
+        codeReader.reset();
 
-    const constraints = {
-      video: { facingMode: { exact: "user" } },
-      audio: false
-    };
-
-    stream = await navigator.mediaDevices.getUserMedia(constraints);
-    videoElement.srcObject = stream;
-
-    codeReader.decodeFromStream(stream, videoElement, async (result, err) => {
-      console.log("📸 decodeFromStream fired!");
-      console.log("🔍 デバッグ: result =", result);
-      console.log("🔍 デバッグ: err =", err);
-
-      if (result && cvReady) {
-        const isbn = result.getText();
-        if (isbn === lastIsbn) return;
-        lastIsbn = isbn;
-
-        // canvas サイズをビデオに合わせて更新
-        canvas.width = videoElement.videoWidth;
-        canvas.height = videoElement.videoHeight;
-        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
-        // OpenCVで読み込み
-        let src = cv.imread(canvas);
-        const scanFrame = document.getElementById("scan-frame").getBoundingClientRect();
-        const videoRect = videoElement.getBoundingClientRect();
-
-        const scaleX = canvas.width / videoRect.width;
-        const scaleY = canvas.height / videoRect.height;
-
-        const x = (scanFrame.left - videoRect.left) * scaleX;
-        const y = (scanFrame.top - videoRect.top) * scaleY;
-        const w = scanFrame.width * scaleX;
-        const h = scanFrame.height * scaleY;
-
-        const barcodeRect = new cv.Rect(x, y, w, h);
-        const cropped = src.roi(barcodeRect);
-
-        // アニメーションで枠を光らせる
-        const frameEl = document.getElementById("scan-frame");
-        frameEl.classList.add("flash");
-        setTimeout(() => frameEl.classList.remove("flash"), 500);
-
-        cropped.delete();
-        src.delete();
-
-        // Notionへ登録処理
-        const token = localStorage.getItem("notionToken");
-        const dbid = localStorage.getItem("notionDbId");
-        const review = reviewInput.value.trim();
-
-        statusElement.textContent = "📚 書籍情報取得中…";
-
+        let constraints = { video: { facingMode: "environment" }, audio: false };
         try {
-          const response = await fetch(`/add/${isbn}`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${token}`,
-              "X-Database-ID": dbid
-            },
-            body: JSON.stringify({ review })
-          });
-
-          const data = await response.json();
-          if (data.status === "OK") {
-            const cover = data.cover || "";
-            bookInfo.innerHTML = `
-              ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
-              <ul>
-                <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
-                <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
-                <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
-                <li><strong>💴 値段:</strong> ${data.price ? `${data.price} 円` : "情報なし"}</li>
-                <li><strong>📅 出版日:</strong> ${data.pub_date || "情報なし"}</li>
-                <li><strong>📄 ページ数:</strong> ${data.pages || "情報なし"}</li>
-                <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
-              </ul>`;
-            statusElement.textContent = "✅ 登録完了";
-          } else {
-            statusElement.textContent = `⚠️ エラー: ${data.message}`;
-          }
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
         } catch (e) {
-          console.error("❌ 通信エラー:", e);
-          statusElement.textContent = "❌ 通信エラー";
-          bookInfo.innerHTML = "";
+          console.warn("📷 外カメラ起動失敗、内カメラに切り替えます");
+          constraints.video.facingMode = "user";
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
         }
 
-        rescanBtn.style.display = "block";
-        codeReader.reset();
-        stream.getTracks().forEach(track => track.stop());
+        videoElement.srcObject = stream;
+
+        codeReader.decodeFromStream(stream, videoElement, async (result, err) => {
+          console.log("📸 decodeFromStream fired!");
+          console.log("🔍 デバッグ: result =", result);
+          console.log("🔍 デバッグ: err =", err);
+
+          if (result && cvReady) {
+            const isbn = result.getText();
+            if (isbn === lastIsbn) return;
+            lastIsbn = isbn;
+
+            canvas.width = videoElement.videoWidth;
+            canvas.height = videoElement.videoHeight;
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+            let src = cv.imread(canvas);
+            const scanFrame = document.getElementById("scan-frame").getBoundingClientRect();
+            const videoRect = videoElement.getBoundingClientRect();
+
+            const scaleX = canvas.width / videoRect.width;
+            const scaleY = canvas.height / videoRect.height;
+
+            const x = (scanFrame.left - videoRect.left) * scaleX;
+            const y = (scanFrame.top - videoRect.top) * scaleY;
+            const w = scanFrame.width * scaleX;
+            const h = scanFrame.height * scaleY;
+
+            const barcodeRect = new cv.Rect(x, y, w, h);
+            const cropped = src.roi(barcodeRect);
+
+            const frameEl = document.getElementById("scan-frame");
+            frameEl.classList.add("flash");
+            setTimeout(() => frameEl.classList.remove("flash"), 500);
+
+            cropped.delete();
+            src.delete();
+
+            const token = localStorage.getItem("notionToken");
+            const dbid = localStorage.getItem("notionDbId");
+            const review = reviewInput.value.trim();
+
+            statusElement.textContent = "📚 書籍情報取得中…";
+
+            try {
+              const response = await fetch(`/add/${isbn}`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${token}`,
+                  "X-Database-ID": dbid
+                },
+                body: JSON.stringify({ review })
+              });
+
+              const data = await response.json();
+              if (data.status === "OK") {
+                const cover = data.cover || "";
+                bookInfo.innerHTML = `
+                  ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
+                  <ul>
+                    <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
+                    <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
+                    <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
+                    <li><strong>💴 値段:</strong> ${data.price ? `${data.price} 円` : "情報なし"}</li>
+                    <li><strong>📅 出版日:</strong> ${data.pub_date || "情報なし"}</li>
+                    <li><strong>📄 ページ数:</strong> ${data.pages || "情報なし"}</li>
+                    <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
+                  </ul>`;
+                statusElement.textContent = "✅ 登録完了";
+              } else {
+                statusElement.textContent = `⚠️ エラー: ${data.message}`;
+              }
+            } catch (e) {
+              console.error("❌ 通信エラー:", e);
+              statusElement.textContent = "❌ 通信エラー";
+              bookInfo.innerHTML = "";
+            }
+
+            rescanBtn.style.display = "block";
+            codeReader.reset();
+            stream.getTracks().forEach(track => track.stop());
+          }
+        });
+      } catch (err) {
+        console.error("❌ カメラ起動エラー:", err);
+        statusElement.textContent = `❌ カメラ起動エラー: ${err.name}`;
       }
+    }
+
+    rescanBtn.addEventListener("click", () => {
+      rescanBtn.style.display = "none";
+      bookInfo.innerHTML = "";
+      statusElement.textContent = "📖 スキャン待機中…";
+      startScan();
     });
-  } catch (err) {
-    console.error("❌ カメラ起動エラー:", err);
-    statusElement.textContent = `❌ カメラ起動エラー: ${err.name}`;
-  }
-}
+
+    window.addEventListener("load", startScan);
+  </script>
+</body>
+</html>
