@@ -42,7 +42,7 @@
 
     #scan-frame {
      position: absolute;
-     border: 0.8px dashed #ffffff;
+     border: 1px dashed #ffffff;
      width: 70%;
      height: 80px;
      top: 20px;
@@ -145,18 +145,36 @@
 
         codeReader.decodeFromStream(stream, videoElement, async (result, err) => {
           if (result && cvReady) {
-            const isbn = result.getText();
-            if (isbn === lastIsbn) return;
-            lastIsbn = isbn;
 
-            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-            let src = cv.imread(canvas);
-            let frameRect = document.getElementById("scan-frame").getBoundingClientRect();
-            let videoRect = videoElement.getBoundingClientRect();
-            const offsetX = frameRect.left - videoRect.left;
-            const offsetY = frameRect.top - videoRect.top;
-            const [scaleX, scaleY] = [videoRect.width / canvas.width, videoRect.height / canvas.height];
+            const points = result.getResultPoints();
+            if (!points || points.length < 2) return;
 
+            // 中心点を計算
+            const centerX = (points[0].x + points[1].x) / 2;
+            const centerY = (points[0].y + points[1].y) / 2;
+
+            // video上の位置からcanvas座標に変換（ビデオ実寸とcanvasサイズの比を利用）
+            const frameRect = document.getElementById("scan-frame").getBoundingClientRect();
+            const videoRect = videoElement.getBoundingClientRect();
+            const scaleX = canvas.width / videoRect.width;
+            const scaleY = canvas.height / videoRect.height;
+
+            // scan-frameの位置をcanvasスケールに変換
+            const fx = (frameRect.left - videoRect.left) * scaleX;
+            const fy = (frameRect.top - videoRect.top) * scaleY;
+            const fw = frameRect.width * scaleX;
+            const fh = frameRect.height * scaleY;
+
+            // 中心点がscan-frame内にあるか判定
+            const cx = centerX * scaleX;
+            const cy = centerY * scaleY;
+
+            const inside = (cx >= fx && cx <= fx + fw && cy >= fy && cy <= fy + fh);
+            if (!inside) {
+            statusElement.textContent = "🔍 枠外のバーコード → 無視します";
+            return;  // スキャンせず return
+            }
+            
             // 今回は簡略化のため、スキップせず常に許可（UI演出だけ）
             src.delete();
 
