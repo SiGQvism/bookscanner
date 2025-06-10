@@ -157,10 +157,12 @@
         videoElement.srcObject = stream;
 
         codeReader.decodeFromStream(stream, videoElement, async (result, err) => {
+          console.log("🔍 デバッグ: result =", result);  // ★追加
+              console.log("🔍 デバッグ: err =", err);        // ★追加
           if (result && cvReady) {
             const isbn = result.getText();
             if (isbn === lastIsbn) return;
-            lastIsbn = isbn;
+            lastIsbn = isbn;S
 
             videoElement.onloadedmetadata = () => {
               canvas.width = videoElement.videoWidth;
