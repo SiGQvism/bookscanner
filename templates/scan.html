@@ -22,34 +22,34 @@
       color: #e0b0ff;
       margin: 1rem 0 0.5rem;
     }
-
     #video-wrapper {
-     position: relative;
-     width: 90%;
-     max-width: 500px;
-     height: 120px;
-     margin-top: 1rem;
+      position: relative;
+      width: 90%;
+      max-width: 500px;
+      height: 120px;
+      margin-top: 1rem;
     }
-
     video {
-     width: 100%;
-     height: 100%;
-     object-fit: cover;
-     border: 1px solid #000000;
-     border-radius: 12px;
-     box-shadow: 0 0 15px rgba(255, 192, 255, 0.3);
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border: 3px solid #e0b0ff;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(255, 192, 255, 0.3);
     }
-
     #scan-frame {
-     position: absolute;
-     border: 1px dashed #ffffff;
-     width: 70%;
-     height: 80px;
-     top: 20px;
-     left: 15%;
-     pointer-events: none;
-    } 
-
+      position: absolute;
+      border: 2px dashed #ff69b4;
+      width: 70%;
+      height: 80px;
+      top: 20px;
+      left: 15%;
+      pointer-events: none;
+    }
+    #scan-frame.flash {
+      background-color: rgba(255, 255, 255, 0.3);
+      transition: background-color 0.5s ease;
+    }
     #status {
       font-size: 1.2rem;
       font-weight: bold;
@@ -86,7 +86,7 @@
       display: none;
     }
     textarea {
-      width: 80%;
+      width: 100%;
       padding: 0.5rem;
       border-radius: 6px;
       font-size: 1rem;
@@ -145,37 +145,32 @@
 
         codeReader.decodeFromStream(stream, videoElement, async (result, err) => {
           if (result && cvReady) {
+            const isbn = result.getText();
+            if (isbn === lastIsbn) return;
+            lastIsbn = isbn;
 
-            const points = result.getResultPoints();
-            if (!points || points.length < 2) return;
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+            let src = cv.imread(canvas);
 
-            // 中心点を計算
-            const centerX = (points[0].x + points[1].x) / 2;
-            const centerY = (points[0].y + points[1].y) / 2;
-
-            // video上の位置からcanvas座標に変換（ビデオ実寸とcanvasサイズの比を利用）
-            const frameRect = document.getElementById("scan-frame").getBoundingClientRect();
+            const scanFrame = document.getElementById("scan-frame").getBoundingClientRect();
             const videoRect = videoElement.getBoundingClientRect();
             const scaleX = canvas.width / videoRect.width;
             const scaleY = canvas.height / videoRect.height;
 
-            // scan-frameの位置をcanvasスケールに変換
-            const fx = (frameRect.left - videoRect.left) * scaleX;
-            const fy = (frameRect.top - videoRect.top) * scaleY;
-            const fw = frameRect.width * scaleX;
-            const fh = frameRect.height * scaleY;
+            const x = (scanFrame.left - videoRect.left) * scaleX;
+            const y = (scanFrame.top - videoRect.top) * scaleY;
+            const w = scanFrame.width * scaleX;
+            const h = scanFrame.height * scaleY;
 
-            // 中心点がscan-frame内にあるか判定
-            const cx = centerX * scaleX;
-            const cy = centerY * scaleY;
+            const barcodeRect = new cv.Rect(x, y, w, h);
+            const cropped = src.roi(barcodeRect);
 
-            const inside = (cx >= fx && cx <= fx + fw && cy >= fy && cy <= fy + fh);
-            if (!inside) {
-            statusElement.textContent = "🔍 枠外のバーコード → 無視します";
-            return;  // スキャンせず return
-            }
-            
-            // 今回は簡略化のため、スキップせず常に許可（UI演出だけ）
+            // UIアニメーション: 枠内に入ったらハイライト
+            const frameEl = document.getElementById("scan-frame");
+            frameEl.classList.add("flash");
+            setTimeout(() => frameEl.classList.remove("flash"), 500);
+
+            cropped.delete();
             src.delete();
 
             const token = localStorage.getItem("notionToken");
