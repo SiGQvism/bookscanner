@@ -40,7 +40,7 @@
     #scan-frame {
       position: absolute;
       border: 2px dashed #ff69b4;
-      width: 70%;
+      width: 50%;
       height: 80px;
       top: 20px;
       left: 15%;
@@ -100,7 +100,7 @@
     <video id="camera" autoplay playsinline></video>
     <div id="scan-frame"></div>
   </div>
-  <canvas id="frame-canvas" width="480" height="120" style="display:none;"></canvas>
+  <canvas id="frame-canvas" width="480" height="120" style="border:1px solid red;"></canvas>
   <div id="status">📖 スキャン待機中…</div>
   <div id="book-info"></div>
   <div style="margin-top: 1rem; width: 90%; max-width: 600px;">
@@ -149,8 +149,12 @@
             if (isbn === lastIsbn) return;
             lastIsbn = isbn;
 
+            canvas.width = videoElement.videoWidth;
+            canvas.height = videoElement.videoHeight;
             ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
             let src = cv.imread(canvas);
+            console.log(canvas.toDataURL());  // Base64の画像として出力されるか？
 
             const scanFrame = document.getElementById("scan-frame").getBoundingClientRect();
             const videoRect = videoElement.getBoundingClientRect();
