@@ -46,17 +46,15 @@
       left: 25%;
       pointer-events: none;
     }
-
     #frame-canvas {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      z-index: 1; /* scan-frameより後ろ */
-      display: none; /* 必要なときだけ表示でもOK */
+      z-index: 1;
+      display: none;
     }
-
     #scan-frame.flash {
       background-color: rgba(255, 255, 255, 0.3);
       transition: background-color 0.5s ease;
@@ -108,12 +106,10 @@
 <body>
   <h1>📷 ISBN スキャナ</h1>
   <div id="video-wrapper">
-  <video id="camera" autoplay playsinline></video>
-  <canvas id="frame-canvas"></canvas> <!-- ここに入れる！ -->
-  <div id="scan-frame"></div>
-</div>
-
-  
+    <video id="camera" autoplay playsinline></video>
+    <canvas id="frame-canvas"></canvas>
+    <div id="scan-frame"></div>
+  </div>
   <div id="status">📖 スキャン待機中…</div>
   <div id="book-info"></div>
   <div style="margin-top: 1rem; width: 90%; max-width: 600px;">
@@ -157,22 +153,23 @@
         videoElement.srcObject = stream;
 
         codeReader.decodeFromStream(stream, videoElement, async (result, err) => {
-          console.log("🔍 デバッグ: result =", result);  // ★追加
-              console.log("🔍 デバッグ: err =", err);        // ★追加
+          console.log("🔍 デバッグ: result =", result);
+          console.log("🔍 デバッグ: err =", err);
           if (result && cvReady) {
             const isbn = result.getText();
             if (isbn === lastIsbn) return;
             lastIsbn = isbn;
 
-            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height); // ←これが必要
+            canvas.width = videoElement.videoWidth;
+            canvas.height = videoElement.videoHeight;
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
 
-            let src = cv.imread(canvas);
-            console.log(canvas.toDataURL());  // Base64の画像として出力されるか？
             if (!cv || !cv.imread) {
-              console.error("❌ OpenCVの読み込みに失敗または未完了");
+              console.error("❌ OpenCV未読み込み");
               return;
             }
 
+            let src = cv.imread(canvas);
             const scanFrame = document.getElementById("scan-frame").getBoundingClientRect();
             const videoRect = videoElement.getBoundingClientRect();
             const scaleX = canvas.width / videoRect.width;
@@ -183,10 +180,9 @@
             const w = scanFrame.width * scaleX;
             const h = scanFrame.height * scaleY;
 
-            const barcodeRect = new cv.Rect(x, y, w, h);
-            const cropped = src.roi(barcodeRect);
+            const roi = new cv.Rect(x, y, w, h);
+            const cropped = src.roi(roi);
 
-            // UIアニメーション: 枠内に入ったらハイライト
             const frameEl = document.getElementById("scan-frame");
             frameEl.classList.add("flash");
             setTimeout(() => frameEl.classList.remove("flash"), 500);
