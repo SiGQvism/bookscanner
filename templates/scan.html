@@ -118,26 +118,83 @@
   </div>
   <button id="rescan-btn">🔄 再スキャン</button>
 
- <!-- ✅ 一番シンプルにして動くか確認する検証用 -->
-<script src="https://unpkg.com/@zxing/library@latest"></script>
+ <script src="https://unpkg.com/@zxing/library@latest"></script>
+<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 <script>
+/* ---- 初期化 ---- */
+let cvReady = false;
+Module = { onRuntimeInitialized() { cvReady = true; } };
+
+const video  = document.getElementById("camera");
+const canvas = document.createElement("canvas");     // メモリ上の canvas
+const ctx    = canvas.getContext("2d");
 const codeReader = new ZXing.BrowserMultiFormatReader();
-const video = document.getElementById("camera");
-const status = document.getElementById("status");
 
-async function start() {
-  // カメラを取るだけ（外⇆内切替は後回し）
-  const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
-  video.srcObject = stream;
+let stream, scanning = false, lastIsbn = null;
 
-  codeReader.decodeFromStream(stream, video, (result, err) => {
-    if (result) {
-      console.log("✅", result.getText());
-      status.textContent = "✅ 取り込み成功: " + result.getText();
-      codeReader.reset();                 // 一旦止める
-      stream.getTracks().forEach(t=>t.stop());
+/* ---- ループで 1frame ずつ処理 ---- */
+async function tick() {
+  if (!scanning || !cvReady) return requestAnimationFrame(tick);
+
+  // 1) video → canvas
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  // 2) ROI 座標計算
+  const frame = document.getElementById("scan-frame").getBoundingClientRect();
+  const vid   = video.getBoundingClientRect();
+  const scaleX = canvas.width  / vid.width;
+  const scaleY = canvas.height / vid.height;
+  const rx = (frame.left - vid.left) * scaleX |0;
+  const ry = (frame.top  - vid.top ) * scaleY |0;
+  const rw =  frame.width           * scaleX |0;
+  const rh =  frame.height          * scaleY |0;
+
+  // 3) ROI を新しい canvas に描画
+  const roiCvs = document.createElement("canvas");
+  roiCvs.width = rw; roiCvs.height = rh;
+  roiCvs.getContext("2d").drawImage(canvas, rx, ry, rw, rh, 0, 0, rw, rh);
+
+  try {
+    // 4) ZXing にデコードさせる（dataURL で直接渡せる）
+    const result = await codeReader.decodeFromImage(undefined, roiCvs.toDataURL());
+    if (result && result.text !== lastIsbn) {
+      lastIsbn = result.text;
+      onDetect(result.text);                  // ← ISBN が読めたときの後続処理
     }
-  });
+  } catch (e) {
+    /* 読めなかったループではエラーになるので無視 */
+  }
+
+  requestAnimationFrame(tick);                // 次フレームへ
 }
-window.onload = start;
+
+/* ---- 初回起動 ---- */
+async function startCam() {
+  stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+  video.srcObject = stream;
+  await video.play();
+  scanning = true;
+  requestAnimationFrame(tick);
+}
+
+/* ---- ISBN を取得したとき ---- */
+function onDetect(isbn){
+  console.log("✅ ROI 内で検出:", isbn);
+  // ★ここに Notion 登録 fetch など既存処理を呼び出す
+  // fetchAdd(isbn);
+  function flashFrame(){
+  const el = document.getElementById("scan-frame");
+  el.classList.add("flash");
+  setTimeout(()=> el.classList.remove("flash"), 400);
+}
+
+// onDetect 内で呼ぶ
+flashFrame();
+
+}
+
+/* ---- 起動 ---- */
+window.addEventListener("load", startCam);
 </script>
