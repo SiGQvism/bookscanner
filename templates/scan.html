@@ -25,7 +25,7 @@
     #video-wrapper {
       position: relative;
       width: 90%;
-      max-width: 640px;
+      max-width: 600px;
       height: 240px;
       margin-top: 1rem;
     }
@@ -41,8 +41,8 @@
       position: absolute;
       border: 2px dashed #ff69b4;
       width: 50%;
-      height: 80px;
-      top: 20px;
+      height: 120px;
+      top: 60px;
       left: 25%;
       pointer-events: none;
     }
@@ -129,6 +129,9 @@ const video  = document.getElementById("camera");
 const canvas = document.createElement("canvas");     // メモリ上の canvas
 const ctx    = canvas.getContext("2d");
 const codeReader = new ZXing.BrowserMultiFormatReader();
+const hints = new Map();
+hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+codeReader.setHints(hints);
 
 let stream, scanning = false, lastIsbn = null;
 
@@ -156,27 +159,56 @@ async function tick() {
   roiCvs.width = rw; roiCvs.height = rh;
   roiCvs.getContext("2d").drawImage(canvas, rx, ry, rw, rh, 0, 0, rw, rh);
 
+   // 4) ZXing へデコード
   try {
-    // 4) ZXing にデコードさせる（dataURL で直接渡せる）
-    const result = await codeReader.decodeFromImage(undefined, roiCvs.toDataURL());
-    if (result && result.text !== lastIsbn) {
-      lastIsbn = result.text;
-      onDetect(result.text);                  // ← ISBN が読めたときの後続処理
-    }
-  } catch (e) {
-    /* 読めなかったループではエラーになるので無視 */
-  }
+    const result = await codeReader.decodeFromImage(roiCvs); // ← 引数は canvas
+    if (result && result.text !== lastIsbn) { onDetect(result.text); }
+  } catch(e) {/* 読み取れない時は無視 */}
 
   requestAnimationFrame(tick);                // 次フレームへ
 }
 
 /* ---- 初回起動 ---- */
 async function startCam() {
-  stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+  // ① 背面カメラ優先、失敗したら内カメラにフォールバック
+  let constraints = {
+  video: {
+    facingMode: "environment",          // 背面カメラ
+    width : { ideal: 1280 },            // ←★ 横1280px を希望
+    height: { ideal: 720  }             // ←★ 縦720px（任意）
+  },
+  audio: false
+};
+  try {
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+  } catch {
+    constraints.video.facingMode = "user";
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+  }
+
+  // ② 連続オートフォーカス (対応端末のみ)
+  const [track] = stream.getVideoTracks();
+  const caps = track.getCapabilities?.();
+  if (caps && caps.focusMode && caps.focusMode.includes("continuous")) {
+    try {
+      await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+      console.log("📸 focusMode: continuous 設定");
+    } catch (e) {
+      console.warn("focusMode apply 失敗:", e);
+    }
+  } else {
+    console.log("⚠️ focusMode 未対応（既定の AF に任せます）");
+  }
+
+  // ③ video 要素へストリームをバインド
   video.srcObject = stream;
   await video.play();
+
+  // ④ スキャンループ開始
   scanning = true;
   requestAnimationFrame(tick);
+
+  return stream;   // ← 返したい場合だけ
 }
 
 /* ---- ISBN を取得したとき ---- */
