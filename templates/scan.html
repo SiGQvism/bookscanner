@@ -112,7 +112,7 @@
     roiC.getContext('2d').drawImage(canvasMem,rx,ry,rw,rh,0,0,rw,rh);
 
     try{
-      const result=await reader.decodeFromImage(roiC);
+      const result = await codeReader.decodeFromImage(video); // 全画面
       if(result&&result.text!==lastIsbn){
         lastIsbn=result.text;flash();processISBN(result.text);
       }
