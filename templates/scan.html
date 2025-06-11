@@ -37,38 +37,34 @@
 
 <button id="rescan">🔄 再スキャン</button>
 
+<!-- ZXing & OpenCV 読み込み -->
 <script src="https://unpkg.com/@zxing/library@latest"></script>
 <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
 <script>
-/* ---- OpenCV.js 初期化 ---- */
+/* ---------- OpenCV 初期化フラグ ---------- */
 let cvReady = false;
 Module = { onRuntimeInitialized() { cvReady = true; console.log("✅ OpenCV ready"); } };
 
-/* ---- DOM 取得 ---- */
+/* ---------- DOM / 変数 ---------- */
 const ZX        = ZXing;
 const videoEl   = document.getElementById("video");
 const statusEl  = document.getElementById("status");
 const infoBox   = document.getElementById("book-info");
 const reviewEl  = document.getElementById("review");
-const rescanBtn = document.getElementById("rescan");
+const btnRescan = document.getElementById("rescan");
 
-/* ---- ZXing Reader（setHints は廃止） ---- */
-const reader = new ZX.BrowserMultiFormatReader({ delayBetweenScanAttempts: 200 });
+const reader = new ZX.BrowserMultiFormatReader({ delayBetweenScanAttempts: 250 }); // ← setHints を完全に削除
 
-/* ---- Canvas（メモリ上） ---- */
-const cvs = document.createElement("canvas");
-const ctx = cvs.getContext("2d");
+const offCanvas = document.createElement("canvas");
+const offCtx    = offCanvas.getContext("2d");
 
-/* ---- グローバル状態 ---- */
-let stream   = null;
+let stream = null;
 let scanning = false;
 let lastISBN = null;
 
-/* ================================================================= */
-/*  スキャン結果を取得したときに呼ばれる処理                         */
-/* ================================================================= */
-async function onDetect(isbn) {
+/* ---------- 検出時の処理 ---------- */
+async function onDetect(isbn){
   console.log("✅ DETECT:", isbn);
   statusEl.textContent = "📚 書籍情報取得中…";
 
@@ -76,94 +72,76 @@ async function onDetect(isbn) {
   const dbid  = localStorage.getItem("notionDbId");
   const review= reviewEl.value.trim();
 
-  try {
-    const res  = await fetch(`/add/${isbn}`, {
-      method: "POST",
-      headers: {
-        "Content-Type":  "application/json",
-        "Authorization": `Bearer ${token}`,
-        "X-Database-ID": dbid
+  try{
+    const res = await fetch(`/add/${isbn}`,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${token}`,
+        'X-Database-ID':dbid
       },
       body: JSON.stringify({ review })
     });
     const data = await res.json();
-
-    if (data.status === "OK") {
+    if(data.status==="OK"){
       infoBox.innerHTML = `
         ${data.cover ? `<img id="cover-img" src="${data.cover}" alt="書影">` : ""}
         <ul>
-          <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
-          <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
-          <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
-          <li><strong>💴 値段:</strong> ${data.price ? data.price + " 円" : "情報なし"}</li>
-          <li><strong>📅 出版日:</strong> ${data.pub_date || "情報なし"}</li>
-          <li><strong>📄 ページ数:</strong> ${data.pages || "情報なし"}</li>
-          <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
+          <li><strong>📕 書名:</strong> ${data.title||"情報なし"}</li>
+          <li><strong>✍️ 著者:</strong> ${data.author||"情報なし"}</li>
+          <li><strong>🏢 出版社:</strong> ${data.publisher||"情報なし"}</li>
+          <li><strong>💴 値段:</strong> ${data.price ? data.price+" 円":"情報なし"}</li>
+          <li><strong>📅 出版日:</strong> ${data.pub_date||"情報なし"}</li>
+          <li><strong>📄 ページ数:</strong> ${data.pages||"情報なし"}</li>
+          <li><strong>📖 要約:</strong> ${data.summary||"情報なし"}</li>
         </ul>`;
       statusEl.textContent = "✅ 登録完了";
-    } else {
+    }else{
       statusEl.textContent = "⚠️ " + data.message;
     }
-  } catch (e) {
+  }catch(e){
     console.error(e);
     statusEl.textContent = "❌ 通信エラー";
   }
 
-  rescanBtn.style.display = "block";
+  btnRescan.style.display = "block";
 }
 
-/* ================================================================= */
-/*  1 フレームごとに ROI を切り出して ZXing へ渡す                    */
-/* ================================================================= */
-function tick() {
-  if (!scanning || !cvReady) return requestAnimationFrame(tick);
+/* ---------- フレーム毎の解析 ---------- */
+function tick(){
+  if(!scanning || !cvReady){ requestAnimationFrame(tick); return; }
 
-  cvs.width  = videoEl.videoWidth;
-  cvs.height = videoEl.videoHeight;
-  ctx.drawImage(videoEl, 0, 0, cvs.width, cvs.height);
+  offCanvas.width  = videoEl.videoWidth;
+  offCanvas.height = videoEl.videoHeight;
+  offCtx.drawImage(videoEl, 0, 0, offCanvas.width, offCanvas.height);
 
-  // ROI 計算（例：中央 50% を読む）
-  const rw = cvs.width  * 0.5 | 0;
-  const rh = cvs.height * 0.3 | 0;
-  const rx = (cvs.width  - rw) / 2 | 0;
-  const ry = (cvs.height - rh) / 2 | 0;
-
-  const roi = ctx.getImageData(rx, ry, rw, rh);
-
-  // off-screen canvas へ描画し ZXing へ
-  const tmp = document.createElement("canvas");
-  tmp.width = rw; tmp.height = rh;
-  tmp.getContext("2d").putImageData(roi, 0, 0);
-
-  reader
-    .decodeFromImage(tmp)
-    .then(res => {
-      if (res && res.text && res.text !== lastISBN) {
-        lastISBN = res.text;
-        onDetect(res.text);
-      }
-    })
-    .catch(() => { /* 読めないフレームは無視 */ });
+  try{
+    reader.decodeFromImage(offCanvas)
+      .then(res=>{
+        if(res && res.text && res.text !== lastISBN){
+          lastISBN = res.text;
+          onDetect(res.text);
+        }
+      })
+      .catch(()=>{/* 読めないフレームは無視 */});
+  }catch{/* noop */}
 
   requestAnimationFrame(tick);
 }
 
-/* ================================================================= */
-/*  カメラを起動してストリームを video 要素へ                         */
-/* ================================================================= */
-async function startCamera() {
-  if (stream) stream.getTracks().forEach(t => t.stop());
-  infoBox.innerHTML = ""; reviewEl.value = ""; statusEl.textContent = "📖 スキャン待機中…";
-  rescanBtn.style.display = "none"; lastISBN = null;
+/* ---------- カメラ起動 ---------- */
+async function startCamera(){
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  infoBox.innerHTML = ""; reviewEl.value=""; statusEl.textContent="📖 スキャン待機中…";
+  btnRescan.style.display="none"; lastISBN=null;
 
-  const constraints = { video: { facingMode: { ideal: "environment" }, width:{ideal:1280} }, audio:false };
-  try {
+  const constraints = { video:{ facingMode:{ideal:"environment"}, width:{ideal:1280} }, audio:false };
+  try{
     stream = await navigator.mediaDevices.getUserMedia(constraints);
-  } catch {
+  }catch{
     constraints.video.facingMode = "user";
     stream = await navigator.mediaDevices.getUserMedia(constraints);
   }
-
   videoEl.srcObject = stream;
   await videoEl.play();
 
@@ -171,9 +149,7 @@ async function startCamera() {
   requestAnimationFrame(tick);
 }
 
-/* ================================================================= */
-/*  イベント                                                           */
-/* ================================================================= */
-rescanBtn.addEventListener("click", startCamera);
+/* ---------- イベント ---------- */
+btnRescan.addEventListener("click", startCamera);
 window.addEventListener("load", startCamera);
 </script>
