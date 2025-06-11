@@ -8,99 +8,18 @@
   <link rel="icon" href="/static/isbn192.png" />
   <meta name="theme-color" content="#000000" />
   <style>
-    body {
-      margin: 0;
-      font-family: 'Arial', 'Hiragino Kaku Gothic ProN', sans-serif;
-      background-color: #000;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    h1 {
-      font-size: 2rem;
-      color: #e0b0ff;
-      margin: 1rem 0 0.5rem;
-    }
-    #video-wrapper {
-      position: relative;
-      width: 90%;
-      max-width: 600px;
-      height: 240px;
-      margin-top: 1rem;
-    }
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      border: 3px solid #e0b0ff;
-      border-radius: 12px;
-      box-shadow: 0 0 15px rgba(255, 192, 255, 0.3);
-    }
-    #scan-frame {
-      position: absolute;
-      border: 2px dashed #ff69b4;
-      width: 50%;
-      height: 120px;
-      top: 60px;
-      left: 25%;
-      pointer-events: none;
-    }
-    #frame-canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 1;
-      display: none;
-    }
-    #scan-frame.flash {
-      background-color: rgba(255, 255, 255, 0.3);
-      transition: background-color 0.5s ease;
-    }
-    #status {
-      font-size: 1.2rem;
-      font-weight: bold;
-      color: #ffffff;
-      text-align: center;
-      margin-top: 1.5rem;
-    }
-    #book-info {
-      margin-top: 1rem;
-      width: 90%;
-      max-width: 600px;
-      background-color: #111;
-      border-radius: 8px;
-      padding: 1.2rem;
-      box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
-      text-align: left;
-    }
-    #cover-img {
-      display: block;
-      margin: 0 auto 1rem;
-      max-width: 200px;
-      border-radius: 8px;
-      box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
-    }
-    #rescan-btn {
-      margin: 1.5rem auto 2rem;
-      padding: 0.6rem 1.4rem;
-      background-color: #8b508d;
-      border: none;
-      color: white;
-      font-size: 1rem;
-      border-radius: 6px;
-      cursor: pointer;
-      display: none;
-    }
-    textarea {
-      width: 100%;
-      padding: 0.5rem;
-      border-radius: 6px;
-      font-size: 1rem;
-      margin-top: 0.5rem;
-    }
+    body{margin:0;font-family:'Arial','Hiragino Kaku Gothic ProN',sans-serif;background:#000;color:#fff;display:flex;flex-direction:column;align-items:center}
+    h1{font-size:2rem;color:#e0b0ff;margin:1rem 0 .5rem}
+    #video-wrapper{position:relative;width:90%;max-width:600px;height:240px;margin-top:1rem}
+    video{width:100%;height:100%;object-fit:cover;border:3px solid #e0b0ff;border-radius:12px;box-shadow:0 0 15px rgba(255,192,255,.3)}
+    #scan-frame{position:absolute;border:2px dashed #ff69b4;width:60%;height:120px;top:60px;left:20%;pointer-events:none}
+    #frame-canvas{position:absolute;top:0;left:0;width:100%;height:100%;display:none;z-index:1}
+    #scan-frame.flash{background:rgba(255,255,255,.3);transition:background .5s ease}
+    #status{font-size:1.1rem;font-weight:bold;margin-top:1rem;text-align:center}
+    #book-info{margin-top:1rem;width:90%;max-width:600px;background:#111;padding:1.2rem;border-radius:8px;box-shadow:0 0 10px rgba(255,255,255,.1)}
+    #cover-img{display:block;margin:0 auto 1rem;max-width:200px;border-radius:8px;box-shadow:0 0 5px rgba(255,255,255,.2)}
+    #rescan-btn{margin:1.5rem auto 2rem;padding:.6rem 1.4rem;background:#8b508d;border:none;color:#fff;font-size:1rem;border-radius:6px;cursor:pointer;display:none}
+    textarea{width:100%;padding:.5rem;border-radius:6px;font-size:1rem;margin-top:.5rem}
   </style>
 </head>
 <body>
@@ -112,123 +31,127 @@
   </div>
   <div id="status">📖 スキャン待機中…</div>
   <div id="book-info"></div>
-  <div style="margin-top: 1rem; width: 90%; max-width: 600px;">
-    <label for="review-input" style="display: block; margin-bottom: 0.4rem; font-weight: bold; color: #e0b0ff;">📝 書評（任意）:</label>
+  <div style="margin-top:1rem;width:90%;max-width:600px;">
+    <label for="review-input" style="display:block;margin-bottom:.4rem;font-weight:bold;color:#e0b0ff">📝 書評（任意）:</label>
     <textarea id="review-input" rows="3"></textarea>
   </div>
   <button id="rescan-btn">🔄 再スキャン</button>
 
- <script src="https://unpkg.com/@zxing/library@latest"></script>
-<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
-<script>
-/* ---- 初期化 ---- */
-let cvReady = false;
-Module = { onRuntimeInitialized() { cvReady = true; } };
+  <!-- libs -->
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
+  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
-const video  = document.getElementById("camera");
-const canvas = document.createElement("canvas");     // メモリ上の canvas
-const ctx    = canvas.getContext("2d");
-const codeReader = new ZXing.BrowserMultiFormatReader();
-const hints = new Map();
-hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-codeReader.setHints(hints);
+  <script>
+  /* OpenCV init */
+  let cvReady=false;
+  Module={onRuntimeInitialized(){cvReady=true;console.log("✅ OpenCV ready")}};
 
-let stream, scanning = false, lastIsbn = null;
+  const video=document.getElementById('camera');
+  const canvasMem=document.createElement('canvas');
+  const ctxMem=canvasMem.getContext('2d');
+  const scanFrame=document.getElementById('scan-frame');
+  const statusEl=document.getElementById('status');
+  const rescanBtn=document.getElementById('rescan-btn');
+  const reviewInput=document.getElementById('review-input');
+  const bookInfo=document.getElementById('book-info');
 
-/* ---- ループで 1frame ずつ処理 ---- */
-async function tick() {
-  if (!scanning || !cvReady) return requestAnimationFrame(tick);
+  const reader=new ZXing.BrowserMultiFormatReader();
+  const hints=new Map();hints.set(ZXing.DecodeHintType.TRY_HARDER,true);reader.setHints(hints);
 
-  // 1) video → canvas
-  canvas.width  = video.videoWidth;
-  canvas.height = video.videoHeight;
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  let lastIsbn=null,scanning=false,stream=null;
 
-  // 2) ROI 座標計算
-  const frame = document.getElementById("scan-frame").getBoundingClientRect();
-  const vid   = video.getBoundingClientRect();
-  const scaleX = canvas.width  / vid.width;
-  const scaleY = canvas.height / vid.height;
-  const rx = (frame.left - vid.left) * scaleX |0;
-  const ry = (frame.top  - vid.top ) * scaleY |0;
-  const rw =  frame.width           * scaleX |0;
-  const rh =  frame.height          * scaleY |0;
-
-  // 3) ROI を新しい canvas に描画
-  const roiCvs = document.createElement("canvas");
-  roiCvs.width = rw; roiCvs.height = rh;
-  roiCvs.getContext("2d").drawImage(canvas, rx, ry, rw, rh, 0, 0, rw, rh);
-
-   // 4) ZXing へデコード
-  try {
-    const result = await codeReader.decodeFromImage(roiCvs); // ← 引数は canvas
-    if (result && result.text !== lastIsbn) { onDetect(result.text); }
-  } catch(e) {/* 読み取れない時は無視 */}
-
-  requestAnimationFrame(tick);                // 次フレームへ
-}
-
-/* ---- 初回起動 ---- */
-async function startCam() {
-  // ① 背面カメラ優先、失敗したら内カメラにフォールバック
-  let constraints = {
-  video: {
-    facingMode: "environment",          // 背面カメラ
-    width : { ideal: 1280 },            // ←★ 横1280px を希望
-    height: { ideal: 720  }             // ←★ 縦720px（任意）
-  },
-  audio: false
-};
-  try {
-    stream = await navigator.mediaDevices.getUserMedia(constraints);
-  } catch {
-    constraints.video.facingMode = "user";
-    stream = await navigator.mediaDevices.getUserMedia(constraints);
-  }
-
-  // ② 連続オートフォーカス (対応端末のみ)
-  const [track] = stream.getVideoTracks();
-  const caps = track.getCapabilities?.();
-  if (caps && caps.focusMode && caps.focusMode.includes("continuous")) {
-    try {
-      await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
-      console.log("📸 focusMode: continuous 設定");
-    } catch (e) {
-      console.warn("focusMode apply 失敗:", e);
+  async function getCameraStream(){
+    const base={width:{ideal:1280},height:{ideal:720}};
+    let constraints={video:{...base,facingMode:"environment"},audio:false};
+    try{return await navigator.mediaDevices.getUserMedia(constraints);}catch(e){
+      constraints.video.facingMode="user";
+      return await navigator.mediaDevices.getUserMedia(constraints);
     }
-  } else {
-    console.log("⚠️ focusMode 未対応（既定の AF に任せます）");
   }
 
-  // ③ video 要素へストリームをバインド
-  video.srcObject = stream;
-  await video.play();
+  async function startCam(){
+    try{
+      stream=await getCameraStream();
+      video.srcObject=stream;await video.play();
+      // AF (best effort)
+      const [track]=stream.getVideoTracks();
+      const caps=track.getCapabilities?.();
+      if(caps&&caps.focusMode?.includes('continuous')){
+        await track.applyConstraints({advanced:[{focusMode:'continuous'}]}).catch(()=>{})
+      }
+      scanning=true;requestAnimationFrame(tick);
+    }catch(err){
+      statusEl.textContent='❌ カメラ取得失敗: '+err.name;
+      console.error(err);
+    }
+  }
 
-  // ④ スキャンループ開始
-  scanning = true;
-  requestAnimationFrame(tick);
+  function flash(){scanFrame.classList.add('flash');setTimeout(()=>scanFrame.classList.remove('flash'),400);}
 
-  return stream;   // ← 返したい場合だけ
-}
+  async function tick(){
+    if(!scanning||!cvReady){return requestAnimationFrame(tick);}  
+    if(video.videoWidth===0){return requestAnimationFrame(tick);} // メタデータ未読み込み
 
-/* ---- ISBN を取得したとき ---- */
-function onDetect(isbn){
+    canvasMem.width=video.videoWidth;canvasMem.height=video.videoHeight;
+    ctxMem.drawImage(video,0,0,canvasMem.width,canvasMem.height);
 
-  function flashFrame(){
-  const el = document.getElementById("scan-frame");
-  el.classList.add("flash");
-  setTimeout(()=> el.classList.remove("flash"), 400);
-}
-  console.log("✅ ROI 内で検出:", isbn);
-  // ★ここに Notion 登録 fetch など既存処理を呼び出す
-  // fetchAdd(isbn);
-  
+    // ROI 計算
+    const vRect=video.getBoundingClientRect();
+    const fRect=scanFrame.getBoundingClientRect();
+    const sX=canvasMem.width/ vRect.width;
+    const sY=canvasMem.height/vRect.height;
+    const rx=((fRect.left-vRect.left)*sX)|0;
+    const ry=((fRect.top -vRect.top )*sY)|0;
+    const rw=(fRect.width*sX)|0;
+    const rh=(fRect.height*sY)|0;
 
-// onDetect 内で呼ぶ
-flashFrame();
+    // ROI が十分大きいか確認
+    if(rw<200||rh<100){return requestAnimationFrame(tick);}  
 
-}
+    const roiC=document.createElement('canvas');roiC.width=rw;roiC.height=rh;
+    roiC.getContext('2d').drawImage(canvasMem,rx,ry,rw,rh,0,0,rw,rh);
 
-/* ---- 起動 ---- */
-window.addEventListener("load", startCam);
-</script>
+    try{
+      const result=await reader.decodeFromImage(roiC);
+      if(result&&result.text!==lastIsbn){
+        lastIsbn=result.text;flash();processISBN(result.text);
+      }
+    }catch(e){/* 読み取れない frame は無視 */}
+
+    requestAnimationFrame(tick);
+  }
+
+  async function processISBN(isbn){
+    statusEl.textContent='📚 書籍情報取得中…';
+    const token=localStorage.getItem('notionToken');
+    const dbid =localStorage.getItem('notionDbId');
+    const review=reviewInput.value.trim();
+    try{
+      const res=await fetch(`/add/${isbn}`,{
+        method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`,'X-Database-ID':dbid},
+        body:JSON.stringify({review})});
+      const data=await res.json();
+      if(data.status==='OK'){
+        const cover=data.cover?`<img id="cover-img" src="${data.cover}" alt="cover">`:'';
+        bookInfo.innerHTML=`${cover}<ul>
+          <li><strong>📕 書名:</strong> ${data.title||'情報なし'}</li>
+          <li><strong>✍️ 著者:</strong> ${data.author||'情報なし'}</li>
+          <li><strong>🏢 出版社:</strong> ${data.publisher||'情報なし'}</li>
+          <li><strong>💴 値段:</strong> ${data.price?data.price+' 円':'情報なし'}</li>
+          <li><strong>📅 出版日:</strong> ${data.pub_date||'情報なし'}</li>
+          <li><strong>📄 ページ数:</strong> ${data.pages||'情報なし'}</li>
+          <li><strong>📖 要約:</strong> ${data.summary||'情報なし'}</li></ul>`;
+        statusEl.textContent='✅ 登録完了';
+      }else{
+        statusEl.textContent='⚠️ '+data.message;
+      }
+    }catch(e){statusEl.textContent='❌ 通信エラー';console.error(e);}  
+    rescanBtn.style.display='block';
+    scanning=false;stream.getTracks().forEach(t=>t.stop());
+  }
+
+  rescanBtn.onclick=()=>{rescanBtn.style.display='none';bookInfo.innerHTML='';statusEl.textContent='📖 スキャン待機中…';startCam();};
+  window.addEventListener('load',startCam);
+  </script>
+</body>
+</html>
