@@ -181,14 +181,16 @@ async function startCam() {
 
 /* ---- ISBN を取得したとき ---- */
 function onDetect(isbn){
-  console.log("✅ ROI 内で検出:", isbn);
-  // ★ここに Notion 登録 fetch など既存処理を呼び出す
-  // fetchAdd(isbn);
+
   function flashFrame(){
   const el = document.getElementById("scan-frame");
   el.classList.add("flash");
   setTimeout(()=> el.classList.remove("flash"), 400);
 }
+  console.log("✅ ROI 内で検出:", isbn);
+  // ★ここに Notion 登録 fetch など既存処理を呼び出す
+  // fetchAdd(isbn);
+  
 
 // onDetect 内で呼ぶ
 flashFrame();
