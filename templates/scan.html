@@ -1,21 +1,100 @@
-<!-- ① OpenCV の <script> をコメントアウト  -->
-<!-- <script async src="https://docs.opencv.org/4.x/opencv.js"></script> -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ISBN スキャナ - シンプル版</title>
+<link rel="icon" href="/static/isbn192.png">
+<meta name="theme-color" content="#000">
+
+<style>
+  body{
+    margin:0;background:#000;color:#fff;display:flex;
+    flex-direction:column;align-items:center;font-family:sans-serif
+  }
+  h1{margin:1rem 0 .5rem;font-size:2rem;color:#d8aaff}
+  #video-wrapper{position:relative;width:90%;max-width:500px;height:220px;margin-top:1rem}
+  video{width:100%;height:100%;object-fit:contain;border:3px solid #d8aaff;border-radius:12px}
+  #status{margin-top:1rem;font-size:1.2rem;font-weight:bold;text-align:center}
+  #rescan{margin:1rem auto;padding:.6rem 1.4rem;border:none;border-radius:6px;
+          background:#8b508d;color:#fff;font-size:1rem;display:none;cursor:pointer}
+</style>
+</head>
+
+<body>
+<h1>📷 ISBN スキャナ</h1>
+
+<div id="video-wrapper">
+  <video id="video" playsinline></video>
+</div>
+
+<div id="status">📖 スキャン待機中…</div>
+<button id="rescan">🔄 再スキャン</button>
+
+<!-- ZXing 読み込み -->
+<script src="https://unpkg.com/@zxing/library@latest"></script>
 
 <script>
-  /* ② OpenCV フラグと canvas 関連を丸ごと削除  */
-  // let cvReady = false; ...
-  // offCanvas なども不要
+/* ---------- DOM 取得 ---------- */
+const ZX       = ZXing;
+const videoEl  = document.getElementById("video");
+const statusEl = document.getElementById("status");
+const btnScan  = document.getElementById("rescan");
 
-  /* ③ ZXing だけでデコード */
-  const reader = new ZXing.BrowserMultiFormatReader({ delayBetweenScanAttempts: 250 });
+/* ---------- 変数 ---------- */
+let reader         = null;   // ZXing インスタンス
+let currentStream  = null;   // 停止用
+let lastISBN       = null;   // 二重読取防止
 
-  async function startCamera(){
-    ...
-    reader.decodeFromVideoDevice(deviceId, videoEl, (result, err, ctrl)=>{
-      if(result){            // 🎯 ここで ISBN を取得
-        ctrl.stop();
-        onDetect(result.text);
-      }
-    });
+/* ---------- 検出時コールバック ---------- */
+function handleDetect(isbn){
+  statusEl.textContent = "✅ 読み取り成功: " + isbn;
+  // ★ここで onDetect(isbn) → Notion 登録などを呼び出す
+}
+
+/* ---------- カメラ起動 & スキャン ---------- */
+async function startCamera(){
+  /* 既存ストリーム停止 */
+  if(currentStream){ currentStream.getTracks().forEach(t=>t.stop()); currentStream = null; }
+  if(reader){ reader.reset(); }
+
+  statusEl.textContent = "📖 スキャン待機中…";
+  btnScan.style.display = "none";
+  lastISBN = null;
+
+  /* 利用可能カメラ → 背面優先 */
+  const devices = await ZX.BrowserCodeReader.listVideoInputDevices();
+  if(!devices.length){
+    statusEl.textContent = "❌ カメラデバイスが見つかりません";
+    return;
   }
+  const backCam = devices.find(d => /back|rear|environment/i.test(d.label));
+  const deviceId = backCam?.deviceId ?? devices[0].deviceId;
+
+  /* ZXing インスタンス作成（delayBetweenScanAttempts だけ指定） */
+  reader = new ZX.BrowserMultiFormatReader({ delayBetweenScanAttempts: 300 });
+
+  /* スキャン開始：映像表示とデコードを同時に行う */
+  reader.decodeFromVideoDevice(deviceId, videoEl, (result, err, ctrl)=>{
+    if(result && result.text){
+      if(result.text === lastISBN) return;   // 重複ガード
+      lastISBN = result.text;
+      ctrl.stop();                           // いったん停止
+      handleDetect(result.text);
+      btnScan.style.display = "block";       // 再スキャン用ボタンを表示
+    }
+    /* 読めないフレームは err が来るが無視で OK */
+  }).then(({stream})=>{
+    currentStream = stream;                  // 停止用に保持
+  }).catch(e=>{
+    console.error("カメラ起動失敗", e);
+    statusEl.textContent = "❌ カメラ起動失敗";
+  });
+}
+
+/* ---------- イベント ---------- */
+btnScan.addEventListener("click", startCamera);
+window.addEventListener("load", startCamera);
 </script>
+</body>
+</html>
