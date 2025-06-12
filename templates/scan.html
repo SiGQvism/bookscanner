@@ -1,102 +1,227 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>ISBN スキャナ - シンプル版</title>
-<link rel="icon" href="/static/isbn192.png">
-<meta name="theme-color" content="#000">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>ISBNスキャナ</title>
 
-<style>
-  body{
-    margin:0;background:#000;color:#fff;display:flex;
-    flex-direction:column;align-items:center;font-family:sans-serif
-  }
-  h1{margin:1rem 0 .5rem;font-size:2rem;color:#d8aaff}
-  #video-wrapper{position:relative;width:90%;max-width:500px;height:220px;margin-top:1rem}
-  video{width:100%;height:100%;object-fit:contain;border:3px solid #d8aaff;border-radius:12px}
-  #status{margin-top:1rem;font-size:1.2rem;font-weight:bold;text-align:center}
-  #rescan{margin:1rem auto;padding:.6rem 1.4rem;border:none;border-radius:6px;
-          background:#8b508d;color:#fff;font-size:1rem;display:none;cursor:pointer}
-</style>
-</head>
+  <!-- PWA & Favicon（任意なら残す） -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/static/isbn192.png">
+  <meta name="theme-color" content="#000">
 
-<body>
-<h1>📷 ISBN スキャナ</h1>
-
-<div id="video-wrapper">
-  <video id="video" playsinline></video>
-</div>
-
-<div id="status">📖 スキャン待機中…</div>
-<button id="rescan">🔄 再スキャン</button>
-
-<!-- ZXing だけで OK -->
-<script src="https://unpkg.com/@zxing/library@latest"></script>
-
-<script>
-/* ---------- DOM ---------- */
-const ZX        = ZXing;
-const videoEl   = document.getElementById("video");
-const statusEl  = document.getElementById("status");
-const btnRescan = document.getElementById("rescan");
-
-/* ---------- 変数 ---------- */
-let reader        = null;
-let currentStream = null;
-let lastISBN      = null;
-
-/* ---------- 読み取り成功時 ---------- */
-function handleDetect(isbn){
-  statusEl.textContent = "✅ 読み取り成功: " + isbn;
-  btnRescan.style.display = "block";
-  /* ★ ここで Notion へ送るなどの処理を呼ぶ */
-}
-
-/* ---------- カメラを開く & 読み取り開始 ---------- */
-async function startCamera(){
-
-  /* 既存ストリーム/リーダー停止 */
-  if (currentStream) currentStream.getTracks().forEach(t => t.stop());
-  if (reader) reader.reset();
-  lastISBN = null;
-  statusEl.textContent = "📖 スキャン待機中…";
-  btnRescan.style.display = "none";
-
-  /* 背面カメラ優先で MediaStream を取得 */
-  const constraints = {
-    video : { facingMode: { ideal: "environment" }, width: { ideal: 1280 } },
-    audio : false
-  };
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia(constraints);
-  } catch {
-    /* 背面カメラが無い端末などは既定カメラを再トライ */
-    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-  }
-
-  /* <video> へバインド */
-  videoEl.srcObject = stream;
-  await videoEl.play();
-
-  /* ZXing リーダー生成 & 読み取り開始 */
-  reader = new ZX.BrowserMultiFormatReader({ delayBetweenScanAttempts: 250 });
-
-  reader.decodeFromStream(stream, videoEl, (result, err, ctrl) => {
-    if (result && result.text) {
-      if (result.text === lastISBN) return; // 同じコードを連打しない
-      lastISBN = result.text;
-      ctrl.stop();                          // 1 回止める（誤爆防止）
-      handleDetect(result.text);
+  <style>
+    :root {
+      --frame: #d8aaff;
+      --accent: #8b508d;
+      --bg     : #000;
+      --txt    : #fff;
     }
-    /* エラーは「読めなかっただけ」の場合が多いので無視 */
-  });
 
-  currentStream = stream;                   // 停止用に保持
-}
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
 
-/* ---------- イベント ---------- */
-btnRescan.addEventListener("click", startCamera);
-window.addEventListener("load",  startCamera);
-</script>
+    h1 {
+      margin: 1rem 0 .5rem;
+      font-size: 2rem;
+      color: var(--frame);
+    }
+
+    /* ---------- Camera ---------- */
+    #video-wrapper {
+      position: relative;
+      width: 90%;
+      max-width: 600px;
+      aspect-ratio: 4 / 3;          /* 高解像度をそのまま敷き詰める */
+      border: 3px solid var(--frame);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;            /* はみ出し切り落としで拡大 */
+    }
+
+    /* ---------- Status / Result ---------- */
+    #status    { margin-top: 1rem; font-size: 1.2rem; font-weight: bold; text-align: center; }
+    #book-info { margin-top: 1rem; width: 90%; max-width: 600px; background:#111; border-radius: 8px; padding: 1rem; }
+
+    /* ---------- Buttons / Inputs ---------- */
+    #rescan {
+      margin: 1.5rem auto;
+      padding: .6rem 1.4rem;
+      border: none;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1rem;
+      display: none;
+      cursor: pointer;
+    }
+    textarea {
+      width: 90%;
+      max-width: 600px;
+      margin-top: 1rem;
+      padding: .5rem;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>📷 ISBN スキャナ</h1>
+
+  <div id="video-wrapper">
+    <video id="video" playsinline></video>
+  </div>
+
+  <div id="status">📖 スキャン待機中…</div>
+  <div id="book-info"></div>
+
+  <label style="width:90%;max-width:600px;display:block">
+    📝 書評（任意）:
+    <textarea id="review" rows="3"></textarea>
+  </label>
+
+  <button id="rescan">🔄 再スキャン</button>
+
+  <!-- ZXing （UMD CDN 版） -->
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
+
+  <script>
+    /* ---------- DOM ---------- */
+    const ZX        = ZXing;
+    const videoEl   = document.getElementById('video');
+    const statusEl  = document.getElementById('status');
+    const infoBox   = document.getElementById('book-info');
+    const reviewEl  = document.getElementById('review');
+    const btnRescan = document.getElementById('rescan');
+
+    /* ---------- ZXing Reader & State ---------- */
+    let reader;            // BrowserMultiFormatReader
+    let currentStream;     // MediaStream
+    let lastISBN = null;   // 重複読み取り防止
+
+    /* ---------- Notion 連携 (必要なら書き換え) ---------- */
+    async function sendToNotion(isbn) {
+      const token  = localStorage.getItem('notionToken');
+      const dbid   = localStorage.getItem('notionDbId');
+      const review = reviewEl.value.trim();
+
+      const res = await fetch(`/add/${isbn}`, {
+        method : 'POST',
+        headers: {
+          'Content-Type'   : 'application/json',
+          'Authorization'  : `Bearer ${token}`,
+          'X-Database-ID'  : dbid
+        },
+        body: JSON.stringify({ review })
+      });
+      return res.json();
+    }
+
+    /* ---------- 検出時 ---------- */
+    async function handleDetect(isbn) {
+      console.log('✅ DETECT:', isbn);
+      statusEl.textContent = '📚 書籍情報取得中…';
+
+      try {
+        const data = await sendToNotion(isbn);
+        if (data.status === 'OK') {
+          infoBox.innerHTML = `
+            ${data.cover ? `<img id="cover-img" src="${data.cover}" alt="書影">` : ''}
+            <ul>
+              <li><strong>📕 書名:</strong> ${data.title      || '情報なし'}</li>
+              <li><strong>✍️ 著者:</strong> ${data.author     || '情報なし'}</li>
+              <li><strong>🏢 出版社:</strong> ${data.publisher  || '情報なし'}</li>
+              <li><strong>💴 値段:</strong> ${data.price ? data.price + ' 円' : '情報なし'}</li>
+              <li><strong>📅 出版日:</strong> ${data.pub_date   || '情報なし'}</li>
+              <li><strong>📄 ページ数:</strong> ${data.pages     || '情報なし'}</li>
+              <li><strong>📖 要約:</strong> ${data.summary    || '情報なし'}</li>
+            </ul>`;
+          statusEl.textContent = '✅ 登録完了';
+        } else {
+          statusEl.textContent = '⚠️ ' + data.message;
+        }
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = '❌ 通信エラー';
+      } finally {
+        btnRescan.style.display = 'block';
+      }
+    }
+
+    /* ---------- カメラ & ZXing セットアップ ---------- */
+    async function startCamera () {
+      /* スキャン状態をリセット */
+      if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+      if (reader) reader.reset();
+      infoBox.innerHTML = '';
+      reviewEl.value    = '';
+      statusEl.textContent = '📖 スキャン待機中…';
+      btnRescan.style.display = 'none';
+      lastISBN = null;
+
+      /* 1. カメラ取得（背面優先・FullHD 希望） */
+      const constraints = {
+        video: {
+          facingMode: { ideal: 'environment' },
+          width :     { ideal: 1920 },
+          height:     { ideal: 1080 }
+        },
+        audio: false
+      };
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch {
+        /* フォールバックでどのカメラでも良いから取得 */
+        stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
+      }
+
+      /* 2. 連続 AF を要求（対応端末のみ） */
+      const [track] = stream.getVideoTracks();
+      const caps = track.getCapabilities?.();
+      if (caps?.focusMode?.includes('continuous')) {
+        track.applyConstraints({ advanced: [{ focusMode:'continuous' }] })
+             .catch(()=>{}); // 失敗しても無視
+      }
+
+      /* 3. video 要素にバインド */
+      videoEl.srcObject = stream;
+      await videoEl.play();
+
+      /* 4. ZXing Reader を初期化 & ヒント設定（EAN-13 + TRY_HARDER）*/
+      const hints = new Map();
+      hints.set(ZX.DecodeHintType.POSSIBLE_FORMATS, [ZX.BarcodeFormat.EAN_13]);
+      hints.set(ZX.DecodeHintType.TRY_HARDER, true);
+
+      reader = new ZX.BrowserMultiFormatReader({ delayBetweenScanAttempts: 250 });
+      reader.setHints(hints);
+
+      reader.decodeFromStream(stream, videoEl, (result, err, ctrl) => {
+        if (result?.text && result.text !== lastISBN) {
+          lastISBN = result.text;
+          ctrl.stop();               // 読み取れたら一旦停止
+          handleDetect(result.text);
+        }
+      });
+
+      currentStream = stream;
+    }
+
+    /* ---------- イベント ---------- */
+    btnRescan.addEventListener('click', startCamera);
+    window.addEventListener('load',   startCamera);
+  </script>
+</body>
+</html>
