@@ -1,56 +1,18 @@
-<!DOCTYPE html><html lang="ja"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Camera Check</title>
-<style>
-body{margin:0;background:#000;color:#fff;display:flex;flex-direction:column;align-items:center;font:16px/1.3 sans-serif}
-video{margin:1rem auto;width:90%;max-width:480px;border:3px solid #ae84ff;border-radius:12px;object-fit:contain}
-button{margin:1rem;padding:.6rem 1.2rem;font-size:1rem;border:none;border-radius:6px;background:#8b508d;color:#fff;cursor:pointer}
-</style>
-</head><body>
-<h1>📷 カメラテスト</h1>
-<video id="cam" muted playsinline></video>
-<button id="switch">🔄 カメラ切替</button>
-<p id="log">⏳ 初期化中…</p>
-
-<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+<!DOCTYPE html><meta charset="utf-8">
+<title>opencv test</title>
 <script>
-const video   = document.getElementById('cam');
-const log     = document.getElementById('log');
-const btn     = document.getElementById('switch');
-let  devices  = [], index = 0, stream = null;
-
-btn.onclick = start;
-
-async function start(){
-  /* 1️⃣ 旧ストリーム停止 */
-  if(stream) stream.getTracks().forEach(t=>t.stop());
-
-  /* 2️⃣ デバイス列挙（最初だけ取得）*/
-  if(!devices.length){
-    devices = await navigator.mediaDevices.enumerateDevices();
-    devices = devices.filter(d=>d.kind==='videoinput');
-    if(!devices.length) return log.textContent='❌ カメラが見つかりません';
-  }
-
-  /* 3️⃣ 次のカメラを試す */
-  const devId = devices[index % devices.length].deviceId;
-  index++;
-
-  try{
-    stream = await navigator.mediaDevices.getUserMedia({
-      video:{deviceId:{exact:devId}},
-      audio:false
-    });
-    video.srcObject = stream;
-    await video.play();
-    log.textContent='✅ 映像取得成功 – deviceId:'+devId;
-  }catch(e){
-    console.error(e);
-    log.textContent='⚠️ 起動失敗:'+e.name+' – 次のカメラを試します';
-  }
-}
-
-/* 初回起動 */
-start();
+  /* 必ず opencv.js より前に置く */
+  window.Module = {
+    onRuntimeInitialized(){
+      console.log("✅ OpenCV ready");
+      // テスト: バージョン文字列取得
+      const info = cv.getBuildInformation();
+      console.log(info.split('\n')[0]);      // 1 行目だけ出す
+      document.body.style.background = "pink";
+    }
+  };
 </script>
-</body></html>
+<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+<body style="color:white;font:20px sans-serif">
+OpenCV loading test
+</body>
