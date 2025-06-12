@@ -35,57 +35,55 @@
 <script src="https://unpkg.com/@zxing/library@latest"></script>
 
 <script>
-/* ---------- DOM 取得 ---------- */
-const ZX       = ZXing;
-const videoEl  = document.getElementById("video");
-const statusEl = document.getElementById("status");
-const btnScan  = document.getElementById("rescan");
+/* ---------- DOM ---------- */
+const ZX        = ZXing;
+const videoEl   = document.getElementById("video");
+const statusEl  = document.getElementById("status");
+const btnRescan = document.getElementById("rescan");
 
-/* ---------- 変数 ---------- */
-let reader         = null;   // ZXing インスタンス
-let currentStream  = null;   // 停止用
-let lastISBN       = null;   // 二重読取防止
+/* ---------- 読み取り用リーダー ---------- */
+let reader        = null;
+let currentStream = null;
+let lastISBN      = null;
 
-/* ---------- 検出時コールバック ---------- */
+/* ---------- 検出時 ---------- */
 function handleDetect(isbn){
   statusEl.textContent = "✅ 読み取り成功: " + isbn;
-  // ★ここで onDetect(isbn) → Notion 登録などを呼び出す
+  btnRescan.style.display = "block";
+  /* ★ 必要ならここで Notion 登録など呼び出す */
 }
 
-/* ---------- カメラ起動 & スキャン ---------- */
+/* ---------- カメラ起動 ---------- */
 async function startCamera(){
   /* 既存ストリーム停止 */
-  if(currentStream){ currentStream.getTracks().forEach(t=>t.stop()); currentStream = null; }
-  if(reader){ reader.reset(); }
+  if(currentStream) currentStream.getTracks().forEach(t=>t.stop());
+  if(reader) reader.reset();
 
   statusEl.textContent = "📖 スキャン待機中…";
-  btnScan.style.display = "none";
+  btnRescan.style.display = "none";
   lastISBN = null;
 
-  /* 利用可能カメラ → 背面優先 */
-  const devices = await ZX.BrowserCodeReader.listVideoInputDevices();
-  if(!devices.length){
-    statusEl.textContent = "❌ カメラデバイスが見つかりません";
-    return;
-  }
-  const backCam = devices.find(d => /back|rear|environment/i.test(d.label));
-  const deviceId = backCam?.deviceId ?? devices[0].deviceId;
+  /* 利用可能カメラ列挙（← 修正ポイント） */
+  const devices = await ZX.BrowserMultiFormatReader.listVideoInputDevices()
+                    .catch(()=>[]);          // 失敗時は空配列
 
-  /* ZXing インスタンス作成（delayBetweenScanAttempts だけ指定） */
+  const backCam = devices.find(d => /back|rear|environment/i.test(d.label));
+  const deviceId = backCam?.deviceId ?? devices[0]?.deviceId ?? undefined;
+
+  /* リーダー生成（delay だけ指定） */
   reader = new ZX.BrowserMultiFormatReader({ delayBetweenScanAttempts: 300 });
 
-  /* スキャン開始：映像表示とデコードを同時に行う */
-  reader.decodeFromVideoDevice(deviceId, videoEl, (result, err, ctrl)=>{
+  /* ビデオ＋デコード開始 */
+  reader.decodeFromVideoDevice(deviceId, videoEl, (result, err, ctrl) => {
     if(result && result.text){
-      if(result.text === lastISBN) return;   // 重複ガード
+      if(result.text === lastISBN) return;   // 重複防止
       lastISBN = result.text;
-      ctrl.stop();                           // いったん停止
+      ctrl.stop();                           // 一旦止める
       handleDetect(result.text);
-      btnScan.style.display = "block";       // 再スキャン用ボタンを表示
     }
-    /* 読めないフレームは err が来るが無視で OK */
+    /* 読めないフレームの err は無視 */
   }).then(({stream})=>{
-    currentStream = stream;                  // 停止用に保持
+    currentStream = stream;
   }).catch(e=>{
     console.error("カメラ起動失敗", e);
     statusEl.textContent = "❌ カメラ起動失敗";
@@ -93,8 +91,6 @@ async function startCamera(){
 }
 
 /* ---------- イベント ---------- */
-btnScan.addEventListener("click", startCamera);
-window.addEventListener("load", startCamera);
+btnRescan.addEventListener("click", startCamera);
+window.addEventListener("load",  startCamera);
 </script>
-</body>
-</html>
