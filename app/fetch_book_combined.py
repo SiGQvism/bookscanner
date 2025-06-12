@@ -39,7 +39,9 @@ def fetch_book_combined(isbn: str) -> dict:
                 result["author"] = summary.get("author", "") or result["author"]
                 result["publisher"] = summary.get("publisher", "") or result["publisher"]
                 result["pub_date"] = summary.get("pubdate", "") or result["pub_date"]
+                result["summary"] = summary.get("volume") or summary.get("toc") or result["summary"]
                 result["cover"] = summary.get("cover", "") or result["cover"]
+                result["pages"]   = result["pages"] or summary.get("pages", "")
 
                 # ページ数（Extent → ExtentUnit=03）
                 extents = ob_data.get("onix", {}).get("DescriptiveDetail", {}).get("Extent", [])
@@ -47,7 +49,7 @@ def fetch_book_combined(isbn: str) -> dict:
                     extents = [extents]
                 for ext in extents:
                     if ext.get("ExtentUnit") == "03":
-                        result["pages"] = ext.get("ExtentValue", "")
+                        result["pages"] = result["pages"] or ext.get("ExtentValue", "")
                         break
 
                 # 値段（PriceAmount）
