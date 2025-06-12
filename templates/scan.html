@@ -1,18 +1,21 @@
-<!DOCTYPE html><meta charset="utf-8">
-<title>opencv test</title>
+<!-- ① OpenCV の <script> をコメントアウト  -->
+<!-- <script async src="https://docs.opencv.org/4.x/opencv.js"></script> -->
+
 <script>
-  /* 必ず opencv.js より前に置く */
-  window.Module = {
-    onRuntimeInitialized(){
-      console.log("✅ OpenCV ready");
-      // テスト: バージョン文字列取得
-      const info = cv.getBuildInformation();
-      console.log(info.split('\n')[0]);      // 1 行目だけ出す
-      document.body.style.background = "pink";
-    }
-  };
+  /* ② OpenCV フラグと canvas 関連を丸ごと削除  */
+  // let cvReady = false; ...
+  // offCanvas なども不要
+
+  /* ③ ZXing だけでデコード */
+  const reader = new ZXing.BrowserMultiFormatReader({ delayBetweenScanAttempts: 250 });
+
+  async function startCamera(){
+    ...
+    reader.decodeFromVideoDevice(deviceId, videoEl, (result, err, ctrl)=>{
+      if(result){            // 🎯 ここで ISBN を取得
+        ctrl.stop();
+        onDetect(result.text);
+      }
+    });
+  }
 </script>
-<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
-<body style="color:white;font:20px sans-serif">
-OpenCV loading test
-</body>
