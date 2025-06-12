@@ -3,15 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ISBNスキャナ</title>
+  <title>ISBNスキャナ – ベースライン</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" href="/static/isbn192.png" />
-  <meta name="theme-color" content="#000" />
+  <meta name="theme-color" content="#000000" />
   <style>
-    /* ---------- レイアウト ---------- */
     body{
       margin:0;
-      font-family:sans-serif;
+      font-family: 'Arial', 'Hiragino Kaku Gothic ProN', sans-serif;
       background:#000;
       color:#fff;
       display:flex;
@@ -21,165 +20,107 @@
     h1{
       margin:1rem 0 .5rem;
       font-size:2rem;
-      color:#d8aaff;
+      color:#e0b0ff;
     }
 
-    /* ★ 横長バーコード用ビデオ枠 (高さ120px) */
-    #video-wrapper{
-      position:relative;
+    /* ★ 横長バーコード想定：高さ 120px */
+    video{
       width:90%;
       max-width:500px;
       height:120px;
-      margin-top:1rem;
-    }
-    video{
-      width:100%;
-      height:100%;
       object-fit:cover;
-      border:3px solid #d8aaff;
+      border:3px solid #e0b0ff;
       border-radius:12px;
       box-shadow:0 0 15px rgba(255,192,255,.3);
+      margin:1rem 0;
     }
 
-    #status{margin-top:1rem;font-size:1.2rem;font-weight:bold;text-align:center}
-    #book-info{margin-top:1rem;width:90%;max-width:600px;background:#111;
-               border-radius:8px;padding:1rem}
-    #rescan{margin:1.5rem auto;padding:.6rem 1.4rem;border:none;border-radius:6px;
-            background:#8b508d;color:#fff;font-size:1rem;display:none;cursor:pointer}
-    textarea{width:90%;max-width:600px;margin-top:1rem;padding:.5rem;border-radius:6px}
+    #status{
+      margin-top:1rem;
+      font-size:1.2rem;
+      font-weight:bold;
+      color:#9fe89f;
+      text-align:center;
+    }
+
+    /* --- このあたり以下は今は表示だけ（スキャンが動き出したら利用） --- */
+    #book-info{
+      margin-top:1rem;
+      width:90%;
+      max-width:600px;
+      background:#111;
+      border-radius:8px;
+      padding:1rem;
+      display:none;          /* まだ使わないので非表示 */
+    }
+
+    textarea{
+      width:90%;
+      max-width:600px;
+      margin-top:1rem;
+      padding:.5rem;
+      border-radius:6px;
+      font-size:1rem;
+    }
+
+    #rescan-btn{
+      margin:1.5rem auto 2rem;
+      padding:.6rem 1.4rem;
+      background:#8b508d;
+      border:none;
+      border-radius:6px;
+      color:#fff;
+      font-size:1rem;
+      display:none;          /* 今は使わない */
+      cursor:pointer;
+    }
   </style>
 </head>
 <body>
   <h1>📷 ISBN スキャナ</h1>
 
-  <div id="video-wrapper">
-    <video id="video" playsinline autoplay></video>
-  </div>
+  <!-- カメラ映像 -->
+  <video id="camera" playsinline autoplay></video>
 
-  <div id="status">📖 スキャン待機中…</div>
+  <!-- ステータス表示 -->
+  <div id="status">📖 カメラ起動待機中…</div>
+
+  <!-- 以下は将来また使う -->
   <div id="book-info"></div>
-
-  <label style="width:90%;max-width:600px;display:block">
+  <label style="display:none;">
     📝 書評（任意）:
-    <textarea id="review" rows="3"></textarea>
+    <textarea id="review-input" rows="3"></textarea>
   </label>
+  <button id="rescan-btn">🔄 再スキャン</button>
 
-  <button id="rescan">🔄 再スキャン</button>
-
-  <!-- ZXing -->
-  <script src="https://unpkg.com/@zxing/library@latest"></script>
-
+  <!-- ★ 追加ライブラリは後で貼る。今は JavaScript だけでカメラを映す -->
   <script>
-    /* ---------- DOM 参照 ---------- */
-    const ZX        = ZXing;
-    const videoEl   = document.getElementById('video');
-    const statusEl  = document.getElementById('status');
-    const infoBox   = document.getElementById('book-info');
-    const reviewEl  = document.getElementById('review');
-    const btnRescan = document.getElementById('rescan');
-
-    /* ---------- ZXing リーダー ---------- */
-    const reader = new ZX.BrowserMultiFormatReader({ delayBetweenScanAttempts:250 });
-    const hints  = new Map();
-    hints.set(ZX.DecodeHintType.TRY_HARDER, true);   // 認識精度を上げる
-    reader.setHints(hints);
-
+    const video  = document.getElementById('camera');
+    const status = document.getElementById('status');
     let stream   = null;
-    let lastISBN = null;
 
-    /* ---------- 書籍登録処理 ---------- */
-    async function onDetect(isbn){
-      console.log('✅ DETECT:', isbn);
-      statusEl.textContent = '📚 書籍情報取得中…';
-
-      const token = localStorage.getItem('notionToken');
-      const dbid  = localStorage.getItem('notionDbId');
-      const review= reviewEl.value.trim();
-
-      try{
-        const res  = await fetch(`/add/${isbn}`,{
-          method:'POST',
-          headers:{
-            'Content-Type':'application/json',
-            'Authorization':`Bearer ${token}`,
-            'X-Database-ID':dbid
-          },
-          body: JSON.stringify({ review })
-        });
-        const data = await res.json();
-        if(data.status==='OK'){
-          infoBox.innerHTML = `
-            ${data.cover ? `<img id="cover-img" src="${data.cover}" alt="書影">` : ''}
-            <ul>
-              <li><strong>📕 書名:</strong> ${data.title||'情報なし'}</li>
-              <li><strong>✍️ 著者:</strong> ${data.author||'情報なし'}</li>
-              <li><strong>🏢 出版社:</strong> ${data.publisher||'情報なし'}</li>
-              <li><strong>💴 値段:</strong> ${data.price?data.price+' 円':'情報なし'}</li>
-              <li><strong>📅 出版日:</strong> ${data.pub_date||'情報なし'}</li>
-              <li><strong>📄 ページ数:</strong> ${data.pages||'情報なし'}</li>
-              <li><strong>📖 要約:</strong> ${data.summary||'情報なし'}</li>
-            </ul>`;
-          statusEl.textContent = '✅ 登録完了';
-        }else{
-          statusEl.textContent = '⚠️ ' + data.message;
-        }
-      }catch(e){
-        console.error(e);
-        statusEl.textContent = '❌ 通信エラー';
-      }
-      btnRescan.style.display = 'block';
-    }
-
-    /* ---------- カメラ起動 ---------- */
-    async function startCamera(){
-      // 既存ストリーム停止
-      if(stream) stream.getTracks().forEach(t=>t.stop());
-      infoBox.innerHTML = '';
-      reviewEl.value    = '';
-      statusEl.textContent = '📖 スキャン待機中…';
-      btnRescan.style.display = 'none';
-      lastISBN = null;
-
-      // デバイス列挙して背面を優先
-      const devices = await ZX.BrowserCodeReader.listVideoInputDevices();
-      const backCam = devices.find(d=>/back|rear|環境|背面/i.test(d.label));
-      const deviceId= backCam ? backCam.deviceId : devices[0]?.deviceId;
-
-      /* 高解像度を希望（端末が許せば 1280×720 以上で取得） */
-      const constraints = {
-        video:{
-          deviceId: deviceId ? {exact:deviceId}:undefined,
-          facingMode:'environment',
-          width : {ideal:1280},
-          height: {ideal:720}
-        },
-        audio:false
-      };
-
+    async function openCamera(){
+      status.textContent = '📷 カメラ起動中…';
+      /* 背面優先 → ダメなら内側 */
+      const base = { width:{ideal:1280}, height:{ideal:720} };   // 高解像度希望
+      let constraints = { video:{ ...base, facingMode:'environment' }, audio:false };
       try{
         stream = await navigator.mediaDevices.getUserMedia(constraints);
-      }catch(e){
-        console.warn('背面カメラ失敗→内カメラ', e);
+      }catch(err){
+        console.warn('背面起動失敗→内カメラ試行', err);
         constraints.video.facingMode = 'user';
         stream = await navigator.mediaDevices.getUserMedia(constraints);
       }
 
-      videoEl.srcObject = stream;
-      await videoEl.play();
-
-      /* ZXing で連続デコード */
-      reader.decodeFromVideoDevice(deviceId, videoEl, (result, err, ctrl)=>{
-        if(result && result.text !== lastISBN){
-          lastISBN = result.text;
-          ctrl.stop();           // 読み取れたら一旦停止
-          onDetect(result.text);
-        }
-      });
+      video.srcObject = stream;
+      await video.play();
+      status.textContent = '✅ カメラ映像表示中（バーコード読み取りロジック未実装）';
     }
 
-    /* ---------- イベント ---------- */
-    btnRescan.addEventListener('click', startCamera);
-    window.addEventListener('load', startCamera);
+    /* 再読み込み用（まだ使わないが置いておく） */
+    document.getElementById('rescan-btn').addEventListener('click', openCamera);
+
+    window.addEventListener('load', openCamera);
   </script>
 </body>
 </html>
