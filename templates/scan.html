@@ -1,72 +1,55 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>ISBNスキャナ</title>
-<link rel="manifest" href="/manifest.json">
-<link rel="icon" href="/static/isbn192.png">
-<meta name="theme-color" content="#000">
+<!DOCTYPE html><html lang="ja"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Camera Check</title>
 <style>
- body{margin:0;font-family:sans-serif;background:#000;color:#fff;
-       display:flex;flex-direction:column;align-items:center}
- h1{margin:1rem 0 .5rem;font-size:2rem;color:#d8aaff}
- #video-wrapper{position:relative;width:90%;max-width:500px;height:220px;margin-top:1rem}
- video{width:100%;height:100%;object-fit:contain;border:3px solid #d8aaff;border-radius:12px}
- #status{margin-top:1rem;font-size:1.2rem;font-weight:bold;text-align:center}
- #book-info{margin-top:1rem;width:90%;max-width:600px;background:#111;border-radius:8px;padding:1rem}
- #rescan{margin:1.5rem auto;padding:.6rem 1.4rem;border:none;border-radius:6px;
-         background:#8b508d;color:#fff;font-size:1rem;display:none;cursor:pointer}
- textarea{width:90%;max-width:600px;margin-top:1rem;padding:.5rem;border-radius:6px}
+body{margin:0;background:#000;color:#fff;display:flex;flex-direction:column;align-items:center;font:16px/1.3 sans-serif}
+video{margin:1rem auto;width:90%;max-width:480px;border:3px solid #ae84ff;border-radius:12px;object-fit:contain}
+button{margin:1rem;padding:.6rem 1.2rem;font-size:1rem;border:none;border-radius:6px;background:#8b508d;color:#fff;cursor:pointer}
 </style>
-</head>
-<body>
-<h1>📷 ISBN スキャナ</h1>
+</head><body>
+<h1>📷 カメラテスト</h1>
+<video id="cam" muted playsinline></video>
+<button id="switch">🔄 カメラ切替</button>
+<p id="log">⏳ 初期化中…</p>
 
-<div id="video-wrapper">
-  <video id="video" playsinline></video>
-</div>
+<script>
+const video   = document.getElementById('cam');
+const log     = document.getElementById('log');
+const btn     = document.getElementById('switch');
+let  devices  = [], index = 0, stream = null;
 
-<div id="status">📖 スキャン待機中…</div>
-<div id="book-info"></div>
+btn.onclick = start;
 
-<label style="width:90%;max-width:600px;display:block">
-  📝 書評（任意）:
-  <textarea id="review" rows="3"></textarea>
-</label>
+async function start(){
+  /* 1️⃣ 旧ストリーム停止 */
+  if(stream) stream.getTracks().forEach(t=>t.stop());
 
-<button id="rescan">🔄 再スキャン</button>
+  /* 2️⃣ デバイス列挙（最初だけ取得）*/
+  if(!devices.length){
+    devices = await navigator.mediaDevices.enumerateDevices();
+    devices = devices.filter(d=>d.kind==='videoinput');
+    if(!devices.length) return log.textContent='❌ カメラが見つかりません';
+  }
 
-<script type="module">
-import {
-  BrowserMultiFormatReader,
-  DecodeHintType,
-  BarcodeFormat,
-} from "https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/+esm";
+  /* 3️⃣ 次のカメラを試す */
+  const devId = devices[index % devices.length].deviceId;
+  index++;
 
-const ZX = { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat };
-const video  = document.getElementById("video");
-const status = document.getElementById("status");
-
-const reader = new ZX.BrowserMultiFormatReader(null, 250);  // ← setHints 使わず delay 第二引数
-reader.options = { tryHarder: true };                      // ← TRY_HARDER 相当
-
-/* ---------- カメラ ---------- */
-async function startCamera() {
-  const cons = { video: { facingMode: "environment" }, audio: false };
-  const stream = await navigator.mediaDevices
-    .getUserMedia(cons)
-    .catch(() => navigator.mediaDevices.getUserMedia({ video: true }));
-  video.srcObject = stream;
-  await video.play();
-
-  // ここでは ROI / OpenCV はまだ触らない
-  reader.decodeFromVideoDevice(null, video, (result, err, ctrl) => {
-    if (result) {
-      ctrl.stop();               // 1 回止めて…
-      status.textContent = "✅ " + result.text;
-    }
-  });
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{deviceId:{exact:devId}},
+      audio:false
+    });
+    video.srcObject = stream;
+    await video.play();
+    log.textContent='✅ 映像取得成功 – deviceId:'+devId;
+  }catch(e){
+    console.error(e);
+    log.textContent='⚠️ 起動失敗:'+e.name+' – 次のカメラを試します';
+  }
 }
-window.addEventListener("load", startCamera);
+
+/* 初回起動 */
+start();
 </script>
+</body></html>
