@@ -4,6 +4,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+TIMEOUT = (3.5, 5)   # (connect, read)
+
+def _get_json(url):
+    try:
+        return requests.get(url, timeout=TIMEOUT).json()
+    except requests.exceptions.RequestException as e:
+        print("🔌 HTTP Error:", e)
+        return None
 
 
 def fetch_book_combined(isbn: str) -> dict:
