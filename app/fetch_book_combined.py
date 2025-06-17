@@ -1,4 +1,3 @@
-
 import os
 import requests
 from dotenv import load_dotenv
@@ -32,15 +31,12 @@ def upload_to_cloudinary(image_bytes, public_id="book_cover"):
 # 画像取得→検証→Cloudinaryアップロード
 def convert_and_upload_image(url, isbn):
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0"
-        }
+        headers = {"User-Agent": "Mozilla/5.0"}
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200 and "image" in response.headers.get("Content-Type", ""):
             img = Image.open(BytesIO(response.content)).convert("RGB")
-            # 「image not available」か確認（幅・高さが極端に小さい場合）
             if img.size[0] < 100 or img.size[1] < 100:
-                print("⚠️ 画像が小さすぎる可能性あり（プレースホルダー）:", url)
+                print("⚠️ 小さすぎる画像（プレースホルダー）と判定:", url)
                 return ""
             buffer = BytesIO()
             img.save(buffer, format="JPEG", quality=90)
@@ -64,7 +60,7 @@ def fetch_book_combined(isbn: str) -> dict:
         "cover": ""
     }
 
-    # OpenBD
+    # 1. OpenBD
     try:
         res = requests.get(f"https://api.openbd.jp/v1/get?isbn={isbn}")
         if res.status_code == 200 and res.json()[0]:
@@ -93,10 +89,10 @@ def fetch_book_combined(isbn: str) -> dict:
     except Exception as e:
         print(f"❌ OpenBDエラー: {e}")
 
-    # Google Books
+    # 2. Google Books（補完）
     try:
-        google_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}&key={GOOGLE_API_KEY}"
-        res = requests.get(google_url)
+        g_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}&key={GOOGLE_API_KEY}"
+        res = requests.get(g_url)
         if res.status_code == 200:
             g_data = res.json()
             if g_data["totalItems"] > 0:
@@ -107,7 +103,7 @@ def fetch_book_combined(isbn: str) -> dict:
                     result["cover"] = url
 
                 def update_if_empty(key, new_value):
-                    if not result[key] or result[key].strip() == "" or result[key] == "情報なし":
+                    if not result[key]:
                         result[key] = new_value
 
                 update_if_empty("title", item.get("title", ""))
@@ -119,7 +115,29 @@ def fetch_book_combined(isbn: str) -> dict:
     except Exception as e:
         print(f"❌ Google Booksエラー: {e}")
 
-    # Cloudinary アップロード
+    # 3. 楽天ブックス（補完）
+    try:
+        r_url = f"https://app.rakuten.co.jp/services/api/BooksTotal/Search/20170404?format=json&isbn={isbn}&applicationId={RAKUTEN_APP_ID}"
+        res = requests.get(r_url)
+        if res.status_code == 200:
+            items = res.json().get("Items", [])
+            if items:
+                item = items[0].get("Item", {})
+
+                def update_if_empty(key, new_value):
+                    if not result[key]:
+                        result[key] = new_value
+
+                update_if_empty("title", item.get("title", ""))
+                update_if_empty("author", item.get("author", ""))
+                update_if_empty("publisher", item.get("publisherName", ""))
+                update_if_empty("price", str(item.get("itemPrice", "")))
+                update_if_empty("pub_date", item.get("salesDate", "").replace("年", "").replace("月", "").replace("日", ""))
+                update_if_empty("cover", item.get("largeImageUrl", ""))
+    except Exception as e:
+        print(f"❌ 楽天ブックスエラー: {e}")
+
+    # Cloudinaryへアップロード
     try:
         if result["cover"]:
             print("🌐 Cloudinaryアップロード前URL:", result["cover"])
@@ -131,9 +149,7 @@ def fetch_book_combined(isbn: str) -> dict:
                 raise Exception("Cloudinary upload failed")
     except Exception as e:
         print(f"⚠️ Cloudinary変換失敗: {e}")
-        fallback = f"https://cover.openbd.jp/{isbn}.jpg"
-        print(f"🆘 FallbackとしてOpenBD画像を使用: {fallback}")
-        result["cover"] = fallback
+        result["cover"] = f"https://cover.openbd.jp/{isbn}.jpg"
 
     if not result["title"] and not result["author"]:
         raise Exception("書籍情報が見つかりませんでした")
