@@ -1,158 +1,98 @@
 import os
 import requests
-from PIL import Image
-from io import BytesIO
-from dotenv import load_dotenv
-import cloudinary
 import cloudinary.uploader
+from dotenv import load_dotenv
 
 load_dotenv()
 
+# 環境変数
+RAKUTEN_APP_ID = os.getenv("RAKUTEN_APP_ID")
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
+
 cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    cloud_name=CLOUDINARY_CLOUD_NAME,
+    api_key=CLOUDINARY_API_KEY,
+    api_secret=CLOUDINARY_API_SECRET
 )
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-RAKUTEN_APP_ID = os.getenv("RAKUTEN_APP_ID")
-
-
-def upload_to_cloudinary(image_bytes, public_id):
-    try:
-        resp = cloudinary.uploader.upload(
-            image_bytes,
-            public_id=public_id,
-            folder="bookscanner",
-            overwrite=True,
-            resource_type="image",
-            format="jpg",
-        )
-        return resp["secure_url"]
-    except Exception as e:
-        print("❌ Cloudinary upload error:", e)
-        return ""
-
-
-def convert_and_upload_image(url, isbn):
-    try:
-        r = requests.get(url, timeout=10)
-        r.raise_for_status()
-        img = Image.open(BytesIO(r.content)).convert("RGB")
-        buf = BytesIO()
-        img.save(buf, format="JPEG", quality=90)
-        buf.seek(0)
-        return upload_to_cloudinary(buf, public_id=isbn)
-    except Exception as e:
-        print("❌ Image conversion/upload error:", e)
-        return ""
-
-
 def fetch_book_combined(isbn: str) -> dict:
-    result = {
+    book = {
         "isbn": isbn,
         "title": "",
         "author": "",
         "publisher": "",
         "pub_date": "",
-        "pages": "",
         "price": "",
+        "pages": "",
         "summary": "",
         "cover": ""
     }
 
-    # 1. Google Books（優先度最大）
+    # --- 1. Google Books ---
     try:
-        r = requests.get(
-            f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}",
-            params={"key": GOOGLE_API_KEY},
-            timeout=10
-        )
-        r.raise_for_status()
-        items = r.json().get("items") or []
-        if items:
-            g = items[0]["volumeInfo"]
-            fields = {
-                "title": g.get("title"),
-                "author": ", ".join(g.get("authors", [])),
-                "publisher": g.get("publisher"),
-                "pub_date": g.get("publishedDate", "").replace("-", ""),
-                "pages": str(g.get("pageCount", "")),
-                "summary": g.get("description"),
-                "cover": g.get("imageLinks", {}).get("thumbnail", "").replace("&zoom=1", "&zoom=0") + "&fife=w800"
-            }
-            result.update({k: v for k, v in fields.items() if v})
-    except Exception as e:
-        print("❌ GoogleBooks error:", e)
+        gb_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}"
+        gb_res = requests.get(gb_url)
+        gb_data = gb_res.json()
+        info = gb_data["items"][0]["volumeInfo"]
 
-    # 2. 楽天ブックス（空欄補完）
+        book["title"] = info.get("title", book["title"])
+        book["author"] = ", ".join(info.get("authors", [])) or book["author"]
+        book["summary"] = info.get("description", book["summary"])
+        book["pages"] = str(info.get("pageCount", "")) or book["pages"]
+        book["cover"] = info.get("imageLinks", {}).get("thumbnail", book["cover"])
+    except Exception as e:
+        print("Google Books error:", e)
+
+    # --- 2. OpenBD ---
     try:
-        r = requests.get(
-            "https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404",
-            params={"format": "json", "isbn": isbn, "applicationId": RAKUTEN_APP_ID},
-            timeout=10
-        )
-        r.raise_for_status()
-        items = r.json().get("Items") or []
-        if items:
-            rb = items[0]["Item"]
-            fields = {
-                "title": rb.get("title"),
-                "author": rb.get("author"),
-                "publisher": rb.get("publisherName"),
-                "price": str(rb.get("itemPrice", "")),
-                "summary": rb.get("itemCaption"),
-                "cover": rb.get("largeImageUrl")
-            }
-            for k, v in fields.items():
-                if not result.get(k) and v:
-                    result[k] = v
+        ob_url = f"https://api.openbd.jp/v1/get?isbn={isbn}"
+        ob_res = requests.get(ob_url).json()
+        if ob_res[0]:
+            summary = ob_res[0]["summary"]
+            book["title"] = summary.get("title", book["title"])
+            book["author"] = summary.get("author", book["author"])
+            book["publisher"] = summary.get("publisher", book["publisher"])
+            book["pub_date"] = summary.get("pubdate", book["pub_date"])
+            book["price"] = summary.get("price", book["price"])
+            book["cover"] = summary.get("cover", book["cover"])
     except Exception as e:
-        print("❌ RakutenBooks error:", e)
+        print("OpenBD error:", e)
 
-    # 3. OpenBD + ONIX（最終補完）
+    # --- 3. 楽天ブックスAPI ---
     try:
-        r = requests.get(f"https://api.openbd.jp/v1/get?isbn={isbn}", timeout=10)
-        r.raise_for_status()
-        ob = r.json()[0]
-        if ob:
-            s = ob.get("summary", {})
-            for k in ["title", "author", "publisher", "pubdate"]:
-                if not result.get(k) and s.get(k):
-                    result[k] = s[k]
-            if not result.get("cover") and s.get("cover"):
-                result["cover"] = s["cover"]
-
-            # ONIXからページ数
-            ext = ob.get("onix", {}).get("DescriptiveDetail", {}).get("Extent", [])
-            if isinstance(ext, dict):
-                ext = [ext]
-            for e in ext:
-                if e.get("ExtentUnit") == "03" and not result["pages"]:
-                    result["pages"] = e.get("ExtentValue", "")
-
-            # ONIXから価格
-            prices = ob.get("onix", {}).get("ProductSupply", {}).get("SupplyDetail", {}).get("Price", [])
-            if isinstance(prices, dict):
-                prices = [prices]
-            for p in prices:
-                if p.get("PriceAmount") and not result["price"]:
-                    result["price"] = p["PriceAmount"]
-                    break
+        if RAKUTEN_APP_ID:
+            rk_url = (
+                f"https://app.rakuten.co.jp/services/api/BooksBook/Search/20170404"
+                f"?format=json&isbn={isbn}&applicationId={RAKUTEN_APP_ID}"
+            )
+            rk_res = requests.get(rk_url)
+            rk_res.raise_for_status()
+            rk_json = rk_res.json()
+            if rk_json["Items"]:
+                item = rk_json["Items"][0]["Item"]
+                book["title"] = item.get("title", book["title"])
+                book["author"] = item.get("author", book["author"])
+                book["publisher"] = item.get("publisherName", book["publisher"])
+                book["pub_date"] = item.get("salesDate", book["pub_date"])
+                book["price"] = str(item.get("itemPrice", book["price"]))
+                book["cover"] = item.get("largeImageUrl", book["cover"])
     except Exception as e:
-        print("❌ OpenBD error:", e)
+        print("RakutenBooks error:", e)
 
-    # カバー画像アップロード
-    if result["cover"]:
-        print("🌐 Cloudinary upload source:", result["cover"])
-        uploaded = convert_and_upload_image(result["cover"], isbn)
-        if uploaded:
-            result["cover"] = uploaded
-        else:
-            print("⚠️ Cloudinary upload failed, using OpenBD fallback")
-            result["cover"] = f"https://cover.openbd.jp/{isbn}.jpg"
+    # --- 4. Cloudinaryへアップロード（Google画像があっても） ---
+    try:
+        if book["cover"]:
+            upload_res = cloudinary.uploader.upload(
+                book["cover"],
+                folder="bookcovers",
+                public_id=isbn,
+                overwrite=True,
+                timeout=10
+            )
+            book["cover"] = upload_res.get("secure_url", book["cover"])
+    except Exception as e:
+        print("Cloudinary upload error:", e)
 
-    if not (result["title"] or result["author"]):
-        raise Exception("書籍情報が取得できませんでした")
-
-    return result
+    return book
