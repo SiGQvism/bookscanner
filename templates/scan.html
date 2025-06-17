@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BookScanner - スキャン</title>
+    <link rel="manifest" href="/manifest.json" />
+    <script src="/static/service-worker.js"></script>
+</head>
+<body>
+    <h1>📚 書籍スキャナー</h1>
+    <video id="camera" autoplay playsinline style="width: 100%; max-width: 400px;"></video>
+    <p>バーコードをカメラにかざしてください</p>
+    <input type="text" id="isbn" placeholder="ISBN" readonly>
+    <textarea id="review" placeholder="書評（省略可）" rows="4" cols="40"></textarea>
+    <button onclick="submitBook()">登録</button>
+    <script src="https://unpkg.com/@ericblade/quagga2@1.2.6/dist/quagga.js"></script>
+    <script>
+        const video = document.getElementById('camera');
+        const isbnInput = document.getElementById('isbn');
+
+        Quagga.init({
+            inputStream: {
+                name: "Live",
+                type: "LiveStream",
+                target: video
+            },
+            decoder: {
+                readers: ["ean_reader"]
+            }
+        }, err => {
+            if (err) return console.error(err);
+            Quagga.start();
+        });
+
+        Quagga.onDetected(data => {
+            const code = data.codeResult.code;
+            if (/^97[89]\d{10}$/.test(code)) {
+                Quagga.stop();
+                isbnInput.value = code;
+            }
+        });
+
+        async function submitBook() {
+            const isbn = isbnInput.value;
+            const review = document.getElementById('review').value;
+
+            const token = localStorage.getItem("NOTION_TOKEN");
+            const dbid = localStorage.getItem("NOTION_DB");
+
+            const res = await fetch(`/add/${isbn}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                    "x-database-id": dbid
+                },
+                body: JSON.stringify({ review })
+            });
+
+            const result = await res.json();
+            alert(JSON.stringify(result, null, 2));
+        }
+    </script>
+</body>
+</html>

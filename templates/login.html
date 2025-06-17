@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ログイン</title>
+</head>
+<body>
+    <h2>🔐 Notion ログイン情報入力</h2>
+    <label for="token">Notion Token:</label>
+    <input id="token" type="text" placeholder="NOTION_TOKEN"><br><br>
+
+    <label for="dbid">Database ID:</label>
+    <input id="dbid" type="text" placeholder="NOTION_DB"><br><br>
+
+    <button onclick="save()">保存してスキャンへ</button>
+
+    <script>
+        function save() {
+            const token = document.getElementById("token").value;
+            const dbid = document.getElementById("dbid").value;
+            localStorage.setItem("NOTION_TOKEN", token);
+            localStorage.setItem("NOTION_DB", dbid);
+            window.location.href = "/scan";
+        }
+    </script>
+</body>
+</html>
