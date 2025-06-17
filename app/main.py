@@ -16,8 +16,12 @@ from app.fetch_book_combined import fetch_book_combined as fetch_book
 load_dotenv()
 app = FastAPI()
 
-# 静的ファイルマウント
-app.mount("/static", StaticFiles(directory="static"), name="static")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
 
 @app.get("/manifest.json")
 def manifest():
@@ -29,12 +33,12 @@ def service_worker():
 
 @app.get("/", response_class=HTMLResponse)
 def login_page():
-    with open("templates/login.html", encoding="utf-8") as f:
+    with open(os.path.join(TEMPLATE_DIR, "login.html"), encoding="utf-8") as f:
         return Template(f.read()).render()
 
 @app.get("/scan", response_class=HTMLResponse)
 def scan_page():
-    with open("templates/scan.html", encoding="utf-8") as f:
+    with open(os.path.join(TEMPLATE_DIR, "scan.html"), encoding="utf-8") as f:
         return Template(f.read()).render()
 
 @app.post("/add/{isbn}")
