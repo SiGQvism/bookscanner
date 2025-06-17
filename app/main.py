@@ -121,6 +121,7 @@ def create_page(notion, db, b):
         "タイトル": {"title": [{"text": {"content": b["title"]}}]},
         "著者": {"rich_text": [{"text": {"content": b["author"]}}]},
         "ISBN": {"rich_text": [{"text": {"content": b["isbn"]}}]},
+        "出版社": {"rich_text": [{"text": {"content": b["publisher"]}}]},  # ← 追加部分
         "値段": {"number": int(b["price"])} if str(b["price"]).isdigit() else {"number": None},
         "出版日": {"date": {"start": f"{b['pub_date'][:4]}-{b['pub_date'][4:6]}-01"}} if len(b["pub_date"]) >= 6 else {"date": None},
         "ページ数": {"number": int(b["pages"])} if str(b["pages"]).isdigit() else {"number": None},
