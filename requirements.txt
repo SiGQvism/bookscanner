@@ -1,7 +1,9 @@
 fastapi
 uvicorn
-requests
 python-dotenv
 notion-client
+requests
+pillow
+cloudinary
 jinja2
-python-multipart
+Pillow
