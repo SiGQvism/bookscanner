@@ -1,66 +1,108 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BookScanner - スキャン</title>
-    <link rel="manifest" href="/manifest.json" />
-    <script src="/static/service-worker.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>📘 書籍スキャン</title>
+  <link rel="manifest" href="/manifest.json">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js').then(() => {
+        console.log("✅ Service Worker registered");
+      });
+    }
+  </script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f5f5f5;
+      text-align: center;
+      padding: 1em;
+    }
+    video {
+      width: 90%;
+      max-width: 400px;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      margin-bottom: 1em;
+    }
+    input, button {
+      padding: 0.6em;
+      margin: 0.5em;
+      width: 80%;
+      max-width: 400px;
+      font-size: 1em;
+    }
+    textarea {
+      width: 80%;
+      max-width: 400px;
+      height: 100px;
+      margin-top: 0.5em;
+    }
+  </style>
 </head>
 <body>
-    <h1>📚 書籍スキャナー</h1>
-    <video id="camera" autoplay playsinline style="width: 100%; max-width: 400px;"></video>
-    <p>バーコードをカメラにかざしてください</p>
-    <input type="text" id="isbn" placeholder="ISBN" readonly>
-    <textarea id="review" placeholder="書評（省略可）" rows="4" cols="40"></textarea>
-    <button onclick="submitBook()">登録</button>
-    <script src="https://unpkg.com/@ericblade/quagga2@1.2.6/dist/quagga.js"></script>
-    <script>
-        const video = document.getElementById('camera');
-        const isbnInput = document.getElementById('isbn');
+  <h1>📷 ISBNスキャン</h1>
 
-        Quagga.init({
-            inputStream: {
-                name: "Live",
-                type: "LiveStream",
-                target: video
-            },
-            decoder: {
-                readers: ["ean_reader"]
-            }
-        }, err => {
-            if (err) return console.error(err);
-            Quagga.start();
-        });
+  <video id="preview" autoplay playsinline></video>
+  <br>
+  <input id="isbn" placeholder="ISBNコードを入力またはスキャン" />
+  <br>
+  <textarea id="review" placeholder="書評・コメント（任意）"></textarea>
+  <br>
+  <button onclick="submitData()">📤 Notionへ登録</button>
 
-        Quagga.onDetected(data => {
-            const code = data.codeResult.code;
-            if (/^97[89]\d{10}$/.test(code)) {
-                Quagga.stop();
-                isbnInput.value = code;
-            }
-        });
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script>
+    const token = localStorage.getItem("token");
+    const dbid = localStorage.getItem("dbid");
 
-        async function submitBook() {
-            const isbn = isbnInput.value;
-            const review = document.getElementById('review').value;
+    if (!token || !dbid) {
+      alert("ログイン情報が見つかりません。最初の画面に戻ります。");
+      location.href = "/";
+    }
 
-            const token = localStorage.getItem("NOTION_TOKEN");
-            const dbid = localStorage.getItem("NOTION_DB");
+    // カメラ起動してスキャン
+    const html5QrCode = new Html5Qrcode("preview");
+    Html5Qrcode.getCameras().then(devices => {
+      if (devices && devices.length) {
+        html5QrCode.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 150 } },
+          (decodedText) => {
+            document.getElementById("isbn").value = decodedText;
+            html5QrCode.stop();
+          }
+        );
+      }
+    });
 
-            const res = await fetch(`/add/${isbn}`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`,
-                    "x-database-id": dbid
-                },
-                body: JSON.stringify({ review })
-            });
+    async function submitData() {
+      const isbn = document.getElementById("isbn").value.trim();
+      const review = document.getElementById("review").value;
 
-            const result = await res.json();
-            alert(JSON.stringify(result, null, 2));
-        }
-    </script>
+      if (!isbn) {
+        alert("ISBNを入力してください");
+        return;
+      }
+
+      const res = await fetch(`/add/${isbn}`, {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + token,
+          "x-database-id": dbid,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ review })
+      });
+
+      const result = await res.json();
+      if (result.status === "OK") {
+        alert(`✅ 登録成功: ${result.title}`);
+      } else {
+        alert("❌ 登録失敗: " + result.message);
+      }
+    }
+  </script>
 </body>
 </html>
