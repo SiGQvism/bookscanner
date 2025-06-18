@@ -1,27 +1,60 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>ログイン</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notion連携ログイン</title>
+  <link rel="manifest" href="/manifest.json">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js').then(() => {
+        console.log('✅ Service Worker 登録完了');
+      });
+    }
+  </script>
+  <style>
+    body {
+      font-family: "Helvetica Neue", sans-serif;
+      text-align: center;
+      padding: 2em;
+      background-color: #f7f7f7;
+    }
+    input {
+      width: 80%;
+      max-width: 400px;
+      padding: 0.8em;
+      margin: 1em 0;
+      font-size: 1em;
+    }
+    button {
+      padding: 0.8em 1.5em;
+      font-size: 1em;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-    <h2>🔐 Notion ログイン情報入力</h2>
-    <label for="token">Notion Token:</label>
-    <input id="token" type="text" placeholder="NOTION_TOKEN"><br><br>
+  <h1>📚 Notion連携ログイン</h1>
+  <p>NotionのTokenとDatabase IDを入力してください。</p>
 
-    <label for="dbid">Database ID:</label>
-    <input id="dbid" type="text" placeholder="NOTION_DB"><br><br>
+  <input id="token" placeholder="Notionトークン（secret_...）"><br>
+  <input id="dbid" placeholder="Database ID"><br>
+  <button onclick="save()">▶ スキャン画面へ進む</button>
 
-    <button onclick="save()">保存してスキャンへ</button>
+  <script>
+    function save() {
+      const token = document.getElementById("token").value;
+      const dbid = document.getElementById("dbid").value;
 
-    <script>
-        function save() {
-            const token = document.getElementById("token").value;
-            const dbid = document.getElementById("dbid").value;
-            localStorage.setItem("NOTION_TOKEN", token);
-            localStorage.setItem("NOTION_DB", dbid);
-            window.location.href = "/scan";
-        }
-    </script>
+      if (!token || !dbid) {
+        alert("すべての項目を入力してください。");
+        return;
+      }
+
+      localStorage.setItem("token", token);
+      localStorage.setItem("dbid", dbid);
+      window.location.href = "/scan";
+    }
+  </script>
 </body>
 </html>
