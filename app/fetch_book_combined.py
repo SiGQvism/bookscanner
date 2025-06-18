@@ -28,40 +28,16 @@ def upload_to_cloudinary(image_bytes, public_id="book_cover"):
         print("❌ Cloudinary upload error:", e)
         return ""
 
-# 画像取得→検証→Cloudinaryアップロード
+# 画像取得→Cloudinaryアップロード（プレースホルダー判定緩和）
 def convert_and_upload_image(url, isbn):
     try:
-        # プレースホルダーURLのフィルタリング
-        if "books.google.com/books/content" in url:
-            print("⚠️ Google BooksのプレースホルダーURLと判定:", url)
-            return ""
-
         headers = {"User-Agent": "Mozilla/5.0"}
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200 and "image" in response.headers.get("Content-Type", ""):
             img = Image.open(BytesIO(response.content)).convert("RGB")
-
-            # サイズチェック（100px以下はプレースホルダーとみなす）
-            if img.size[0] < 100 or img.size[1] < 100:
-                print("⚠️ 小さすぎる画像（プレースホルダー）と判定:", url)
+            if img.size[0] < 80 or img.size[1] < 80:
+                print("⚠️ 小さすぎる画像（プレースホルダー）:", url)
                 return ""
-
-            # 単色判定（色数が極端に少ない、白系グレー系など）
-            colors = img.getcolors(maxcolors=256)
-            if colors and len(colors) <= 3:
-                print("⚠️ 単色系のプレースホルダーと判定:", url)
-                return ""
-
-            # 平均色による白・灰色チェック
-            if colors:
-                total_pixels = sum(count for count, _ in colors)
-                avg = tuple(
-                    sum(c * count for count, (r, g, b) in colors for c in (r, g, b)) // (3 * total_pixels)
-                )
-                if all(c > 240 for c in avg):  # ほぼ白
-                    print("⚠️ 明るすぎる画像（白背景）と判定:", url)
-                    return ""
-
             buffer = BytesIO()
             img.save(buffer, format="JPEG", quality=90)
             buffer.seek(0)
@@ -70,7 +46,7 @@ def convert_and_upload_image(url, isbn):
         print("❌ 画像変換エラー:", e)
     return ""
 
-# 書籍情報統合関数（楽天 → OpenBD → Google の順で補完）
+# 書籍情報統合関数（楽天→OpenBD→Googleの順）
 def fetch_book_combined(isbn: str) -> dict:
     result = {
         "isbn": isbn,
@@ -84,7 +60,7 @@ def fetch_book_combined(isbn: str) -> dict:
         "cover": ""
     }
 
-    # 1. 楽天ブックス（最優先）
+    # 楽天ブックス（最優先）
     try:
         r_url = f"https://app.rakuten.co.jp/services/api/BooksTotal/Search/20170404?format=json&isbn={isbn}&applicationId={RAKUTEN_APP_ID}"
         res = requests.get(r_url)
@@ -92,22 +68,21 @@ def fetch_book_combined(isbn: str) -> dict:
             items = res.json().get("Items", [])
             if items:
                 item = items[0].get("Item", {})
-                result["cover"] = item.get("largeImageUrl", "") or result["cover"]
-                result["title"] = item.get("title", "") or result["title"]
-                result["author"] = item.get("author", "") or result["author"]
-                result["publisher"] = item.get("publisherName", "") or result["publisher"]
-                result["price"] = str(item.get("itemPrice", "")) or result["price"]
-                result["pub_date"] = item.get("salesDate", "").replace("年", "").replace("月", "").replace("日", "") or result["pub_date"]
+                result["cover"] = item.get("largeImageUrl", "")
+                result["title"] = item.get("title", "")
+                result["author"] = item.get("author", "")
+                result["publisher"] = item.get("publisherName", "")
+                result["price"] = str(item.get("itemPrice", ""))
+                result["pub_date"] = item.get("salesDate", "").replace("年", "").replace("月", "").replace("日", "")
     except Exception as e:
         print(f"❌ 楽天ブックスエラー: {e}")
 
-    # 2. OpenBD（補完用）
+    # OpenBD（補完）
     try:
         res = requests.get(f"https://api.openbd.jp/v1/get?isbn={isbn}")
         if res.status_code == 200 and res.json()[0]:
             ob_data = res.json()[0]
             summary = ob_data.get("summary", {})
-
             result["title"] = result["title"] or summary.get("title", "")
             result["author"] = result["author"] or summary.get("author", "")
             result["publisher"] = result["publisher"] or summary.get("publisher", "")
@@ -131,7 +106,7 @@ def fetch_book_combined(isbn: str) -> dict:
     except Exception as e:
         print(f"❌ OpenBDエラー: {e}")
 
-    # 3. Google Books（補完用・最後）
+    # Google Books（補完）
     try:
         g_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}&key={GOOGLE_API_KEY}"
         res = requests.get(g_url)
