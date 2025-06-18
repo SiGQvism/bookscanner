@@ -1,108 +1,27 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>📘 書籍スキャン</title>
-  <link rel="manifest" href="/manifest.json">
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/service-worker.js').then(() => {
-        console.log("✅ Service Worker registered");
-      });
-    }
-  </script>
-  <style>
-    body {
-      font-family: sans-serif;
-      background: #f5f5f5;
-      text-align: center;
-      padding: 1em;
-    }
-    video {
-      width: 90%;
-      max-width: 400px;
-      border: 2px solid #ccc;
-      border-radius: 8px;
-      margin-bottom: 1em;
-    }
-    input, button {
-      padding: 0.6em;
-      margin: 0.5em;
-      width: 80%;
-      max-width: 400px;
-      font-size: 1em;
-    }
-    textarea {
-      width: 80%;
-      max-width: 400px;
-      height: 100px;
-      margin-top: 0.5em;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>ログイン</title>
 </head>
 <body>
-  <h1>📷 ISBNスキャン</h1>
+    <h2>🔐 Notion ログイン情報入力</h2>
+    <label for="token">Notion Token:</label>
+    <input id="token" type="text" placeholder="NOTION_TOKEN"><br><br>
 
-  <video id="preview" autoplay playsinline></video>
-  <br>
-  <input id="isbn" placeholder="ISBNコードを入力またはスキャン" />
-  <br>
-  <textarea id="review" placeholder="書評・コメント（任意）"></textarea>
-  <br>
-  <button onclick="submitData()">📤 Notionへ登録</button>
+    <label for="dbid">Database ID:</label>
+    <input id="dbid" type="text" placeholder="NOTION_DB"><br><br>
 
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <script>
-    const token = localStorage.getItem("token");
-    const dbid = localStorage.getItem("dbid");
+    <button onclick="save()">保存してスキャンへ</button>
 
-    if (!token || !dbid) {
-      alert("ログイン情報が見つかりません。最初の画面に戻ります。");
-      location.href = "/";
-    }
-
-    // カメラ起動してスキャン
-    const html5QrCode = new Html5Qrcode("preview");
-    Html5Qrcode.getCameras().then(devices => {
-      if (devices && devices.length) {
-        html5QrCode.start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 250, height: 150 } },
-          (decodedText) => {
-            document.getElementById("isbn").value = decodedText;
-            html5QrCode.stop();
-          }
-        );
-      }
-    });
-
-    async function submitData() {
-      const isbn = document.getElementById("isbn").value.trim();
-      const review = document.getElementById("review").value;
-
-      if (!isbn) {
-        alert("ISBNを入力してください");
-        return;
-      }
-
-      const res = await fetch(`/add/${isbn}`, {
-        method: "POST",
-        headers: {
-          "Authorization": "Bearer " + token,
-          "x-database-id": dbid,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ review })
-      });
-
-      const result = await res.json();
-      if (result.status === "OK") {
-        alert(`✅ 登録成功: ${result.title}`);
-      } else {
-        alert("❌ 登録失敗: " + result.message);
-      }
-    }
-  </script>
+    <script>
+        function save() {
+            const token = document.getElementById("token").value;
+            const dbid = document.getElementById("dbid").value;
+            localStorage.setItem("NOTION_TOKEN", token);
+            localStorage.setItem("NOTION_DB", dbid);
+            window.location.href = "/scan";
+        }
+    </script>
 </body>
 </html>
