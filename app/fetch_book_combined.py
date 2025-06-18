@@ -1,7 +1,7 @@
 import os
 import requests
 from dotenv import load_dotenv
-from PIL import Image, ImageStat
+from PIL import Image
 from io import BytesIO
 import cloudinary
 import cloudinary.uploader
@@ -35,14 +35,14 @@ def convert_and_upload_image(url, isbn):
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200 and "image" in response.headers.get("Content-Type", ""):
             img = Image.open(BytesIO(response.content)).convert("RGB")
-
-            # 🎯 プレースホルダー画像判定（標準偏差が低すぎる）
-            stat = ImageStat.Stat(img)
-            stddev = sum(stat.stddev) / len(stat.stddev)
-            if stddev < 10:
-                print("⚠️ プレースホルダー画像を検出:", url)
+            if img.size[0] < 100 or img.size[1] < 100:
+                print("⚠️ 小さすぎる画像（プレースホルダー）と判定:", url)
                 return ""
-
+            # 「image not available」的画像を除外（ほぼ白 or グレー判定）
+            colors = img.getcolors(maxcolors=256)
+            if colors and len(colors) <= 3:
+                print("⚠️ 単色系のプレースホルダーと判定:", url)
+                return ""
             buffer = BytesIO()
             img.save(buffer, format="JPEG", quality=90)
             buffer.seek(0)
@@ -51,7 +51,7 @@ def convert_and_upload_image(url, isbn):
         print("❌ 画像変換エラー:", e)
     return ""
 
-# 書籍情報統合関数
+# 書籍情報統合関数（楽天→OpenBD→Google優先）
 def fetch_book_combined(isbn: str) -> dict:
     result = {
         "isbn": isbn,
@@ -65,23 +65,42 @@ def fetch_book_combined(isbn: str) -> dict:
         "cover": ""
     }
 
-    # 1. OpenBD
+    # 1. 楽天ブックス（最優先）
+    try:
+        r_url = f"https://app.rakuten.co.jp/services/api/BooksTotal/Search/20170404?format=json&isbn={isbn}&applicationId={RAKUTEN_APP_ID}"
+        res = requests.get(r_url)
+        if res.status_code == 200:
+            items = res.json().get("Items", [])
+            if items:
+                item = items[0].get("Item", {})
+
+                result["cover"] = item.get("largeImageUrl", "") or result["cover"]
+                result["title"] = item.get("title", "") or result["title"]
+                result["author"] = item.get("author", "") or result["author"]
+                result["publisher"] = item.get("publisherName", "") or result["publisher"]
+                result["price"] = str(item.get("itemPrice", "")) or result["price"]
+                result["pub_date"] = item.get("salesDate", "").replace("年", "").replace("月", "").replace("日", "") or result["pub_date"]
+    except Exception as e:
+        print(f"❌ 楽天ブックスエラー: {e}")
+
+    # 2. OpenBD（補完用）
     try:
         res = requests.get(f"https://api.openbd.jp/v1/get?isbn={isbn}")
         if res.status_code == 200 and res.json()[0]:
             ob_data = res.json()[0]
             summary = ob_data.get("summary", {})
-            result["title"] = summary.get("title", "") or result["title"]
-            result["author"] = summary.get("author", "") or result["author"]
-            result["publisher"] = summary.get("publisher", "") or result["publisher"]
-            result["pub_date"] = summary.get("pubdate", "") or result["pub_date"]
-            result["cover"] = summary.get("cover", "") or result["cover"]
+
+            result["title"] = result["title"] or summary.get("title", "")
+            result["author"] = result["author"] or summary.get("author", "")
+            result["publisher"] = result["publisher"] or summary.get("publisher", "")
+            result["pub_date"] = result["pub_date"] or summary.get("pubdate", "")
+            result["cover"] = result["cover"] or summary.get("cover", "")
 
             extents = ob_data.get("onix", {}).get("DescriptiveDetail", {}).get("Extent", [])
             if isinstance(extents, dict): extents = [extents]
             for ext in extents:
                 if ext.get("ExtentUnit") == "03":
-                    result["pages"] = ext.get("ExtentValue", "")
+                    result["pages"] = result["pages"] or ext.get("ExtentValue", "")
                     break
 
             prices = ob_data.get("onix", {}).get("ProductSupply", {}).get("SupplyDetail", {}).get("Price", [])
@@ -89,12 +108,12 @@ def fetch_book_combined(isbn: str) -> dict:
             for price in prices:
                 amount = price.get("PriceAmount")
                 if amount:
-                    result["price"] = amount
+                    result["price"] = result["price"] or amount
                     break
     except Exception as e:
         print(f"❌ OpenBDエラー: {e}")
 
-    # 2. Google Books（補完）
+    # 3. Google Books（補完用・最後）
     try:
         g_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}&key={GOOGLE_API_KEY}"
         res = requests.get(g_url)
@@ -105,7 +124,7 @@ def fetch_book_combined(isbn: str) -> dict:
                 url = item.get("imageLinks", {}).get("thumbnail", "")
                 if url:
                     url = url.replace("&zoom=1", "&zoom=0").replace("&zoom=2", "&zoom=0") + "&fife=w800"
-                    result["cover"] = url
+                    result["cover"] = result["cover"] or url
 
                 def update_if_empty(key, new_value):
                     if not result[key]:
@@ -119,28 +138,6 @@ def fetch_book_combined(isbn: str) -> dict:
                 update_if_empty("pages", str(item.get("pageCount", "")))
     except Exception as e:
         print(f"❌ Google Booksエラー: {e}")
-
-    # 3. 楽天ブックス（補完）
-    try:
-        r_url = f"https://app.rakuten.co.jp/services/api/BooksTotal/Search/20170404?format=json&isbn={isbn}&applicationId={RAKUTEN_APP_ID}"
-        res = requests.get(r_url)
-        if res.status_code == 200:
-            items = res.json().get("Items", [])
-            if items:
-                item = items[0].get("Item", {})
-
-                def update_if_empty(key, new_value):
-                    if not result[key]:
-                        result[key] = new_value
-
-                update_if_empty("title", item.get("title", ""))
-                update_if_empty("author", item.get("author", ""))
-                update_if_empty("publisher", item.get("publisherName", ""))
-                update_if_empty("price", str(item.get("itemPrice", "")))
-                update_if_empty("pub_date", item.get("salesDate", "").replace("年", "").replace("月", "").replace("日", ""))
-                update_if_empty("cover", item.get("largeImageUrl", ""))
-    except Exception as e:
-        print(f"❌ 楽天ブックスエラー: {e}")
 
     # Cloudinaryへアップロード
     try:
