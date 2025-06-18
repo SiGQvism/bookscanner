@@ -1,58 +1,84 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🔑 Notionログイン</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notionログイン</title>
+  <link rel="icon" href="/static/isbn192.png" />
+  <meta name="theme-color" content="#000000" />
   <style>
     body {
-      font-family: sans-serif;
+      margin: 0;
+      background-color: #000;
+      color: #fff;
+      font-family: 'Arial', 'Hiragino Kaku Gothic ProN', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    .container {
+      background-color: #111;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
+      max-width: 400px;
+      width: 90%;
       text-align: center;
-      background: #f0f0f0;
-      padding: 2em;
     }
     h1 {
-      margin-bottom: 1em;
+      color: #e0b0ff;
+      margin-bottom: 1.5rem;
+      font-size: 1.8rem;
     }
-    input {
-      width: 80%;
-      max-width: 400px;
-      padding: 0.8em;
-      margin: 0.5em 0;
-      font-size: 1em;
+    label {
+      display: block;
+      margin: 1rem 0 0.5rem;
+      text-align: left;
+      font-weight: bold;
+    }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 0.6rem;
+      border-radius: 6px;
+      border: none;
+      background: #222;
+      color: #fff;
+      font-size: 1rem;
+    }
+    input::placeholder {
+      color: #888;
     }
     button {
-      padding: 0.8em 2em;
-      font-size: 1em;
-      margin-top: 1em;
+      margin-top: 1.5rem;
+      padding: 0.8rem 1.5rem;
+      font-size: 1rem;
+      background-color: #a463c1;
+      color: white;
+      border: none;
+      border-radius: 6px;
       cursor: pointer;
+      width: 100%;
     }
   </style>
 </head>
 <body>
-  <h1>📘 Notionに接続</h1>
-
-  <input id="token" placeholder="Notionトークンを入力" />
-  <br />
-  <input id="dbid" placeholder="Notion データベースIDを入力" />
-  <br />
-  <button onclick="save()">ログイン</button>
-
+  <div class="container">
+    <h1>🔐 Notionログイン</h1>
+    <label for="token">🔑 トークン（secret_...）</label>
+    <input id="token" type="password" placeholder="secret_xxx..." autocomplete="on" />
+    <label for="dbid">📁 データベースID</label>
+    <input id="dbid" type="text" placeholder="例: abcdef123456..." autocomplete="on" />
+    <button onclick="saveAndRedirect()">保存して開始</button>
+  </div>
   <script>
-    function save() {
-      const token = document.getElementById("token").value.trim();
-      const dbid = document.getElementById("dbid").value.trim();
-
-      if (!token || !dbid) {
-        alert("両方入力してください");
-        return;
-      }
-
-      localStorage.setItem("token", token);
-      localStorage.setItem("dbid", dbid);
-
-      alert("✅ ログイン情報を保存しました");
-      location.href = "/scan";
+    function saveAndRedirect() {
+      const token = document.getElementById("token").value;
+      const dbid = document.getElementById("dbid").value;
+      localStorage.setItem("notionToken", token);
+      localStorage.setItem("notionDbId", dbid);
+      window.location.href = "/scan";
     }
   </script>
 </body>
