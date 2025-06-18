@@ -29,16 +29,13 @@ def upload_to_cloudinary(image_bytes, public_id="book_cover"):
         print("❌ Cloudinary upload error:", e)
         return ""
 
-# 画像取得→検証→Cloudinaryアップロード
-def convert_and_upload_image(url, isbn):
+# 小さい画像も含めてCloudinaryへアップロード
+def convert_and_upload_image_allow_small(url, isbn):
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200 and "image" in response.headers.get("Content-Type", ""):
             img = Image.open(BytesIO(response.content)).convert("RGB")
-            if img.size[0] < 100 or img.size[1] < 100:
-                print("⚠️ 小さすぎる画像（プレースホルダー）と判定:", url)
-                return ""
             buffer = BytesIO()
             img.save(buffer, format="JPEG", quality=90)
             buffer.seek(0)
@@ -138,11 +135,11 @@ def fetch_book_combined(isbn: str) -> dict:
     except Exception as e:
         print(f"❌ 楽天ブックスエラー: {e}")
 
-    # Cloudinaryへアップロード
+    # Cloudinaryへアップロード（小さい画像も含める）
     try:
         if result["cover"]:
             print("🌐 Cloudinaryアップロード前URL:", result["cover"])
-            cloudinary_url = convert_and_upload_image(result["cover"], isbn)
+            cloudinary_url = convert_and_upload_image_allow_small(result["cover"], isbn)
             print("🔁 Cloudinaryアップロード結果:", cloudinary_url)
             if cloudinary_url:
                 result["cover"] = cloudinary_url
