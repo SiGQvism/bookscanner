@@ -3,195 +3,244 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ISBNスキャナ</title>
+  <title>ISBN Scanner</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" href="/static/isbn192.png" />
-  <meta name="theme-color" content="#000000" />
+  <meta name="theme-color" content="#1e2b20" />
+
+  <!-- チョーク風フォント -->
+  <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet" />
+
+  <!-- ZXing ライブラリ -->
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
+
   <style>
+    :root {
+      --chalk-bg: #1e2b20;        /* 黒板 */
+      --chalk-board: #223322;     /* 黒板（濃） */
+      --chalk-border: #859d6e;    /* チョークぼかし */
+      --chalk-text: #f0f0f0;      /* 白チョーク */
+      --chalk-accent: #9ed68c;    /* 緑チョーク */
+      --chalk-pink: #ffc8d2;      /* ピンクチョーク（強調） */
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
-      font-family: 'Arial', 'Hiragino Kaku Gothic ProN', sans-serif;
-      background-color: #000;
-      color: #fff;
+      background: var(--chalk-bg);
+      font-family: 'Gloria Hallelujah', cursive;
+      color: var(--chalk-text);
       display: flex;
       flex-direction: column;
       align-items: center;
+      min-height: 100vh;
+      padding: 1rem 0 3rem;
     }
+
     h1 {
+      margin: 0.5rem 0 1rem;
       font-size: 2rem;
-      color: #e0b0ff;
-      margin: 1rem 0 0.5rem;
+      color: var(--chalk-accent);
+      text-shadow: 1px 1px #000;
     }
-    video {
-      width: 90%;
-      max-width: 500px;
-      height: 120px;
-      object-fit: cover;
-      border: 3px solid #e0b0ff;
+
+    /* 黒板フレーム */
+    .board {
+      background: var(--chalk-board);
+      border: 2px dashed var(--chalk-border);
       border-radius: 12px;
-      box-shadow: 0 0 15px rgba(255, 192, 255, 0.3);
-      margin: 1rem 0;
-    }
-    #status {
-      font-size: 1.2rem;
-      font-weight: bold;
-      color: #9fe89f;
-      text-align: center;
-      margin-top: 1.5rem;
-    }
-    #book-info {
-      margin-top: 1rem;
-      width: 90%;
-      max-width: 600px;
-      background-color: #111;
-      border-radius: 8px;
       padding: 1.2rem;
-      box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
-      text-align: left;
+      box-shadow: 0 0 10px rgba(255,255,255,0.08);
+      width: min(92%, 650px);
     }
-    #cover-img {
+
+    /* カメラ映像 */
+    video#camera {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 2px solid var(--chalk-border);
+      box-shadow: 0 0 6px #000 inset;
+    }
+
+    #status {
+      margin-top: 1rem;
+      font-size: 1.2rem;
+      color: var(--chalk-accent);
+      text-align: center;
+      word-break: break-word;
+    }
+
+    /* 書籍情報カード */
+    #book-info {
+      margin-top: 1.2rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px dashed var(--chalk-border);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+
+    #book-info img {
       display: block;
       margin: 0 auto 1rem;
-      max-width: 200px;
-      border-radius: 8px;
-      box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+      max-width: 160px;
+      border-radius: 4px;
+      border: 2px solid var(--chalk-border);
     }
-    ul {
+
+    #book-info ul {
       list-style: none;
-      padding: 0;
       margin: 0;
+      padding: 0;
+      line-height: 1.7;
     }
-    li {
-      margin-bottom: 0.8rem;
-      line-height: 1.6;
+
+    #book-info strong {
+      color: var(--chalk-pink);
     }
-    strong {
-      color: #e0b0ff;
-    }
-    #rescan-btn {
-      margin: 1.5rem auto 2rem;
-      padding: 0.6rem 1.4rem;
-      background-color: #8b508d;
-      border: none;
-      color: white;
-      font-size: 1rem;
-      border-radius: 6px;
-      cursor: pointer;
-      display: none;
-    }
-    #review-input {
+
+    /* 書評欄 */
+    textarea#review-input {
       width: 100%;
-      padding: 0.5rem;
-      border-radius: 6px;
-      font-size: 1rem;
-      margin-top: 0.5rem;
+      border: 1px dashed var(--chalk-border);
+      border-radius: 8px;
+      background: rgba(34,51,34,0.6);
+      color: var(--chalk-text);
+      padding: 0.6rem;
+      font-family: inherit;
+      resize: vertical;
+      margin-top: 1rem;
     }
+
+    /* ボタン */
+    button {
+      display: block;
+      margin: 1.2rem auto 0;
+      padding: 0.6rem 1.8rem;
+      border: 2px solid var(--chalk-accent);
+      border-radius: 8px;
+      background: var(--chalk-accent);
+      color: var(--chalk-bg);
+      font-size: 1rem;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    button:hover { background: #bfffb0; }
+    button:disabled { opacity: 0.5; cursor: default; }
+
+    /* 隠す初期状態 */
+    #rescan-btn { display: none; }
   </style>
 </head>
-<body>
-  <h1>📷 ISBN スキャナ</h1>
-  <video id="camera" autoplay playsinline></video>
-  <div id="status">📖 スキャン待機中…</div>
-  <div id="book-info"></div>
 
-  <!-- 🔽 書評欄 -->
-  <div style="margin-top: 1rem; width: 90%; max-width: 600px;">
-    <label for="review-input" style="display: block; margin-bottom: 0.4rem; font-weight: bold; color: #e0b0ff;">📝 書評（任意）:</label>
-    <textarea id="review-input" rows="3"></textarea>
+<body>
+  <h1>📚 ISBN スキャナ</h1>
+  <div class="board">
+    <video id="camera" autoplay playsinline></video>
+    <div id="status">🔍 カメラ待機中…</div>
+
+    <!-- 書評入力 -->
+    <textarea id="review-input" rows="3" placeholder="📝 書評（任意でチョークで書き込もう）"></textarea>
+
+    <!-- 書籍情報 -->
+    <div id="book-info"></div>
+
+    <!-- 再スキャン -->
+    <button id="rescan-btn">🔄 もう一度スキャン</button>
   </div>
 
-  <button id="rescan-btn">🔄 再スキャン</button>
-
-  <script src="https://unpkg.com/@zxing/library@latest"></script>
+  <!-- スクリプト -->
   <script>
     const codeReader = new ZXing.BrowserMultiFormatReader();
     const videoElement = document.getElementById("camera");
-    const statusElement = document.getElementById("status");
-    const bookInfo = document.getElementById("book-info");
-    const rescanBtn = document.getElementById("rescan-btn");
-    const reviewInput = document.getElementById("review-input");
+    const statusEl     = document.getElementById("status");
+    const infoEl       = document.getElementById("book-info");
+    const rescanBtn    = document.getElementById("rescan-btn");
+    const reviewInput  = document.getElementById("review-input");
 
-    let lastIsbn = null;
     let stream = null;
+    let lastIsbn = null;
 
-    async function startScan() {
+    async function startCamera() {
       try {
-        if (stream) stream.getTracks().forEach(track => track.stop());
-        codeReader.reset();
-
-        const constraints = {
-          video: { facingMode: { exact: "environment" } },
-          audio: false
-        };
-
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        const constraints = { video: { facingMode: { exact: "environment" } }, audio: false };
         stream = await navigator.mediaDevices.getUserMedia(constraints);
         videoElement.srcObject = stream;
-
-        codeReader.decodeFromStream(stream, videoElement, async (result, err) => {
-          if (result) {
-            const isbn = result.getText();
-            if (isbn === lastIsbn) return;
-            lastIsbn = isbn;
-
-            const token = localStorage.getItem("notionToken");
-            const dbid = localStorage.getItem("notionDbId");
-            const review = reviewInput.value.trim();
-
-            statusElement.textContent = "📚 書籍情報取得中…";
-
-            try {
-              const response = await fetch(`/add/${isbn}`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${token}`,
-                  "X-Database-ID": dbid
-                },
-                body: JSON.stringify({ review })
-              });
-
-              const data = await response.json();
-              if (data.status === "OK") {
-                const cover = data.cover || "";
-                bookInfo.innerHTML = `
-                  ${cover ? `<img id="cover-img" src="${cover}" alt="書影">` : ""}
-                  <ul>
-                    <li><strong>📕 書名:</strong> ${data.title || "情報なし"}</li>
-                    <li><strong>✍️ 著者:</strong> ${data.author || "情報なし"}</li>
-                    <li><strong>🏢 出版社:</strong> ${data.publisher || "情報なし"}</li>
-                    <li><strong>💴 値段:</strong> ${data.price ? data.price + " 円" : "情報なし"}</li>
-                    <li><strong>📅 出版日:</strong> ${data.pub_date || "情報なし"}</li>
-                    <li><strong>📄 ページ数:</strong> ${data.pages || "情報なし"}</li>
-                    <li><strong>📖 要約:</strong> ${data.summary || "情報なし"}</li>
-                  </ul>
-                `;
-                statusElement.textContent = "✅ 登録完了";
-              } else {
-                statusElement.textContent = `⚠️ エラー: ${data.message}`;
-              }
-            } catch (e) {
-              statusElement.textContent = "❌ 通信エラー";
-              bookInfo.innerHTML = "";
-            }
-
-            rescanBtn.style.display = "block";
-            codeReader.reset();
-            stream.getTracks().forEach(track => track.stop());
-          }
-        });
-      } catch (err) {
-        statusElement.textContent = `❌ カメラ起動エラー: ${err}`;
+      } catch (e) {
+        statusEl.textContent = "❌ カメラを使用できません: " + e;
       }
     }
 
-    rescanBtn.addEventListener("click", () => {
+    async function beginScan() {
+      await startCamera();
+      statusEl.textContent = "📖 ISBN をかざしてください…";
+      infoEl.innerHTML = "";
       rescanBtn.style.display = "none";
-      bookInfo.innerHTML = "";
-      statusElement.textContent = "📖 スキャン待機中…";
-      startScan();
-    });
 
-    window.addEventListener("load", startScan);
+      codeReader.decodeFromStream(stream, videoElement, async (result, err) => {
+        if (result) {
+          const isbn = result.getText();
+          if (isbn === lastIsbn) return;  // 重複防止
+          lastIsbn = isbn;
+
+          statusEl.textContent = "🔗 書籍情報取得中…";
+          try {
+            const token = localStorage.getItem("notionToken");
+            const dbid  = localStorage.getItem("notionDbId");
+            const review = reviewInput.value.trim();
+
+            const resp = await fetch(`/add/${isbn}`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`,
+                "X-Database-ID": dbid
+              },
+              body: JSON.stringify({ review })
+            });
+
+            const data = await resp.json();
+
+            if (data.status === "OK") {
+              renderBook(data);
+              statusEl.textContent = "✅ Notion へ登録完了！";
+            } else {
+              statusEl.textContent = "⚠️ エラー: " + data.message;
+            }
+          } catch (e) {
+            statusEl.textContent = "❌ 通信エラー";
+          }
+
+          // スキャン終了
+          codeReader.reset();
+          stream.getTracks().forEach(t => t.stop());
+          rescanBtn.style.display = "block";
+        }
+      });
+    }
+
+    function renderBook(b) {
+      const cover = b.cover ? `<img src="${b.cover}" alt="cover">` : "";
+      infoEl.innerHTML = `
+        ${cover}
+        <ul>
+          <li><strong>📕 書名:</strong> ${b.title || "情報なし"}</li>
+          <li><strong>✍️ 著者:</strong> ${b.author || "情報なし"}</li>
+          <li><strong>🏢 出版社:</strong> ${b.publisher || "情報なし"}</li>
+          <li><strong>💴 価格:</strong> ${b.price ? b.price + " 円" : "情報なし"}</li>
+          <li><strong>📅 出版日:</strong> ${b.pub_date || "情報なし"}</li>
+          <li><strong>📄 ページ数:</strong> ${b.pages || "情報なし"}</li>
+          <li><strong>📖 要約:</strong> ${b.summary || "情報なし"}</li>
+        </ul>`;
+    }
+
+    rescanBtn.addEventListener("click", () => beginScan());
+    window.addEventListener("load", () => beginScan());
   </script>
 </body>
 </html>
