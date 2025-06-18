@@ -31,18 +31,37 @@ def upload_to_cloudinary(image_bytes, public_id="book_cover"):
 # 画像取得→検証→Cloudinaryアップロード
 def convert_and_upload_image(url, isbn):
     try:
+        # プレースホルダーURLのフィルタリング
+        if "books.google.com/books/content" in url:
+            print("⚠️ Google BooksのプレースホルダーURLと判定:", url)
+            return ""
+
         headers = {"User-Agent": "Mozilla/5.0"}
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200 and "image" in response.headers.get("Content-Type", ""):
             img = Image.open(BytesIO(response.content)).convert("RGB")
+
+            # サイズチェック（100px以下はプレースホルダーとみなす）
             if img.size[0] < 100 or img.size[1] < 100:
                 print("⚠️ 小さすぎる画像（プレースホルダー）と判定:", url)
                 return ""
-            # 「image not available」的画像を除外（ほぼ白 or グレー判定）
+
+            # 単色判定（色数が極端に少ない、白系グレー系など）
             colors = img.getcolors(maxcolors=256)
             if colors and len(colors) <= 3:
                 print("⚠️ 単色系のプレースホルダーと判定:", url)
                 return ""
+
+            # 平均色による白・灰色チェック
+            if colors:
+                total_pixels = sum(count for count, _ in colors)
+                avg = tuple(
+                    sum(c * count for count, (r, g, b) in colors for c in (r, g, b)) // (3 * total_pixels)
+                )
+                if all(c > 240 for c in avg):  # ほぼ白
+                    print("⚠️ 明るすぎる画像（白背景）と判定:", url)
+                    return ""
+
             buffer = BytesIO()
             img.save(buffer, format="JPEG", quality=90)
             buffer.seek(0)
@@ -51,7 +70,7 @@ def convert_and_upload_image(url, isbn):
         print("❌ 画像変換エラー:", e)
     return ""
 
-# 書籍情報統合関数（楽天→OpenBD→Google優先）
+# 書籍情報統合関数（楽天 → OpenBD → Google の順で補完）
 def fetch_book_combined(isbn: str) -> dict:
     result = {
         "isbn": isbn,
@@ -73,7 +92,6 @@ def fetch_book_combined(isbn: str) -> dict:
             items = res.json().get("Items", [])
             if items:
                 item = items[0].get("Item", {})
-
                 result["cover"] = item.get("largeImageUrl", "") or result["cover"]
                 result["title"] = item.get("title", "") or result["title"]
                 result["author"] = item.get("author", "") or result["author"]
