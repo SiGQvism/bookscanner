@@ -10,8 +10,11 @@ from app.fetch_book_combined import fetch_book_combined as fetch_book
 load_dotenv()
 app = FastAPI()
 
-# === 静的ファイル提供 ===
-app.mount("/static", StaticFiles(directory="static"), name="static")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+
 
 @app.get("/manifest.json")
 def manifest():
