@@ -3,57 +3,56 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Notion連携ログイン</title>
-  <link rel="manifest" href="/manifest.json">
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/service-worker.js').then(() => {
-        console.log('✅ Service Worker 登録完了');
-      });
-    }
-  </script>
+  <title>🔑 Notionログイン</title>
   <style>
     body {
-      font-family: "Helvetica Neue", sans-serif;
+      font-family: sans-serif;
       text-align: center;
+      background: #f0f0f0;
       padding: 2em;
-      background-color: #f7f7f7;
+    }
+    h1 {
+      margin-bottom: 1em;
     }
     input {
       width: 80%;
       max-width: 400px;
       padding: 0.8em;
-      margin: 1em 0;
+      margin: 0.5em 0;
       font-size: 1em;
     }
     button {
-      padding: 0.8em 1.5em;
+      padding: 0.8em 2em;
       font-size: 1em;
+      margin-top: 1em;
       cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <h1>📚 Notion連携ログイン</h1>
-  <p>NotionのTokenとDatabase IDを入力してください。</p>
+  <h1>📘 Notionに接続</h1>
 
-  <input id="token" placeholder="Notionトークン（secret_...）"><br>
-  <input id="dbid" placeholder="Database ID"><br>
-  <button onclick="save()">▶ スキャン画面へ進む</button>
+  <input id="token" placeholder="Notionトークンを入力" />
+  <br />
+  <input id="dbid" placeholder="Notion データベースIDを入力" />
+  <br />
+  <button onclick="save()">ログイン</button>
 
   <script>
     function save() {
-      const token = document.getElementById("token").value;
-      const dbid = document.getElementById("dbid").value;
+      const token = document.getElementById("token").value.trim();
+      const dbid = document.getElementById("dbid").value.trim();
 
       if (!token || !dbid) {
-        alert("すべての項目を入力してください。");
+        alert("両方入力してください");
         return;
       }
 
       localStorage.setItem("token", token);
       localStorage.setItem("dbid", dbid);
-      window.location.href = "/scan";
+
+      alert("✅ ログイン情報を保存しました");
+      location.href = "/scan";
     }
   </script>
 </body>
