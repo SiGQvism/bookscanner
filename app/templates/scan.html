@@ -8,41 +8,31 @@
   <link rel="icon" href="/static/isbn192.png" />
   <meta name="theme-color" content="#1e2b20" />
 
-  <!-- チョーク風フォント -->
+  <!-- フォント -->
   <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet" />
-
-  <!-- ZXing ライブラリ -->
-  <script src="https://unpkg.com/@zxing/library@latest"></script>
-
   <style>
-  @font-face {
-    font-family: 'AnzuFont';
-    src: url('/static/fonts/anzu.ttf') format('truetype');
-    font-weight: normal;
-    font-style: normal;
-  }
-  body {
-        font-family: 'AnzuFont', 'Gloria Hallelujah', cursive;
-  }
-  
+    @font-face {
+      font-family: 'AnzuFont';
+      src: url('/static/fonts/anzu.ttf') format('truetype');
+    }
 
     :root {
-      --chalk-bg: #1e2b20;        /* 黒板 */
-      --chalk-board: #223322;     /* 黒板（濃） */
-      --chalk-border: #859d6e;    /* チョークぼかし */
-      --chalk-text: #f0f0f0;      /* 白チョーク */
-      --chalk-accent: #9ed68c;    /* 緑チョーク */
-      --chalk-pink: #ffc8d2;      /* ピンクチョーク（強調） */
+      --chalk-bg: #1e2b20;
+      --chalk-board: #223322;
+      --chalk-border: #859d6e;
+      --chalk-text: #f0f0f0;
+      --chalk-accent: #9ed68c;
+      --chalk-pink: #ffc8d2;
     }
 
     * {
       box-sizing: border-box;
     }
-    
+
     body {
       margin: 0;
       background: var(--chalk-bg);
-      font-family: 'Gloria Hallelujah', cursive;
+      font-family: 'Gloria Hallelujah', 'AnzuFont', cursive;
       color: var(--chalk-text);
       display: flex;
       flex-direction: column;
@@ -58,7 +48,6 @@
       text-shadow: 1px 1px #000;
     }
 
-    /* 黒板フレーム */
     .board {
       background: var(--chalk-board);
       border: 2px dashed var(--chalk-border);
@@ -68,7 +57,6 @@
       width: min(92%, 650px);
     }
 
-    /* カメラ映像 */
     video#camera {
       width: 100%;
       aspect-ratio: 16/9;
@@ -86,7 +74,27 @@
       word-break: break-word;
     }
 
-    /* 書籍情報カード */
+    .chalk-done {
+      font-size: 2rem;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 1.5px;
+      animation: chalkWrite 1.2s ease-out forwards;
+      font-family: 'Gloria Hallelujah', 'AnzuFont', cursive;
+    }
+
+    @keyframes chalkWrite {
+      from {
+        stroke-dasharray: 1000;
+        stroke-dashoffset: 1000;
+        opacity: 0;
+      }
+      to {
+        stroke-dashoffset: 0;
+        opacity: 1;
+      }
+    }
+
     #book-info {
       margin-top: 1.2rem;
       background: rgba(255,255,255,0.05);
@@ -114,7 +122,6 @@
       color: var(--chalk-pink);
     }
 
-    /* 書評欄 */
     textarea#review-input {
       width: 100%;
       border: 1px dashed var(--chalk-border);
@@ -127,7 +134,6 @@
       margin-top: 1rem;
     }
 
-    /* ボタン */
     button {
       display: block;
       margin: 1.2rem auto 0;
@@ -143,28 +149,20 @@
     button:hover { background: #bfffb0; }
     button:disabled { opacity: 0.5; cursor: default; }
 
-    /* 隠す初期状態 */
     #rescan-btn { display: none; }
   </style>
 </head>
-
 <body>
   <h1>📚 ISBN スキャナ</h1>
   <div class="board">
     <video id="camera" autoplay playsinline></video>
     <div id="status">🔍 カメラ待機中…</div>
-
-    <!-- 書評入力 -->
     <textarea id="review-input" rows="3" placeholder="📝 書評（任意でチョークで書き込もう）"></textarea>
-
-    <!-- 書籍情報 -->
     <div id="book-info"></div>
-
-    <!-- 再スキャン -->
     <button id="rescan-btn">🔄 もう一度スキャン</button>
   </div>
 
-  <!-- スクリプト -->
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
   <script>
     const codeReader = new ZXing.BrowserMultiFormatReader();
     const videoElement = document.getElementById("camera");
@@ -196,7 +194,7 @@
       codeReader.decodeFromStream(stream, videoElement, async (result, err) => {
         if (result) {
           const isbn = result.getText();
-          if (isbn === lastIsbn) return;  // 重複防止
+          if (isbn === lastIsbn) return;
           lastIsbn = isbn;
 
           statusEl.textContent = "🔗 書籍情報取得中…";
@@ -219,7 +217,13 @@
 
             if (data.status === "OK") {
               renderBook(data);
-              statusEl.textContent = "✅ Notion へ登録完了！";
+              statusEl.innerHTML = `
+                <svg viewBox='0 0 500 100' width='100%' height='60'>
+                  <text x='10' y='60' class='chalk-done'>✅ 登録完了！</text>
+                </svg>
+                <div style='text-align:center; margin-top:10px;'>
+                  <img src='/static/icons/handdrawn-book.png' width='50' />
+                </div>`;
             } else {
               statusEl.textContent = "⚠️ エラー: " + data.message;
             }
@@ -227,7 +231,6 @@
             statusEl.textContent = "❌ 通信エラー";
           }
 
-          // スキャン終了
           codeReader.reset();
           stream.getTracks().forEach(t => t.stop());
           rescanBtn.style.display = "block";
