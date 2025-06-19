@@ -8,12 +8,19 @@
   <link rel="icon" href="/static/isbn192.png" />
   <meta name="theme-color" content="#1e2b20" />
 
-  <!-- フォント -->
+  <!-- Googleフォント（欧文チョーク風） -->
   <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet" />
+
+  <!-- ZXing ライブラリ -->
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
+
   <style>
+    /* あんずもじフォントの読み込み */
     @font-face {
       font-family: 'AnzuFont';
       src: url('/static/fonts/anzu.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
     }
 
     :root {
@@ -25,14 +32,12 @@
       --chalk-pink: #ffc8d2;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
       background: var(--chalk-bg);
-      font-family: 'Gloria Hallelujah', 'AnzuFont', cursive;
+      font-family: 'AnzuFont', 'Gloria Hallelujah', cursive;
       color: var(--chalk-text);
       display: flex;
       flex-direction: column;
@@ -72,27 +77,6 @@
       color: var(--chalk-accent);
       text-align: center;
       word-break: break-word;
-    }
-
-    .chalk-done {
-      font-size: 2rem;
-      fill: none;
-      stroke: #fff;
-      stroke-width: 1.5px;
-      animation: chalkWrite 1.2s ease-out forwards;
-      font-family: 'Gloria Hallelujah', 'AnzuFont', cursive;
-    }
-
-    @keyframes chalkWrite {
-      from {
-        stroke-dasharray: 1000;
-        stroke-dashoffset: 1000;
-        opacity: 0;
-      }
-      to {
-        stroke-dashoffset: 0;
-        opacity: 1;
-      }
     }
 
     #book-info {
@@ -146,23 +130,27 @@
       font-family: inherit;
       cursor: pointer;
     }
+
     button:hover { background: #bfffb0; }
     button:disabled { opacity: 0.5; cursor: default; }
 
     #rescan-btn { display: none; }
   </style>
 </head>
+
 <body>
   <h1>📚 ISBN スキャナ</h1>
   <div class="board">
     <video id="camera" autoplay playsinline></video>
     <div id="status">🔍 カメラ待機中…</div>
+
     <textarea id="review-input" rows="3" placeholder="📝 書評（任意でチョークで書き込もう）"></textarea>
+
     <div id="book-info"></div>
+
     <button id="rescan-btn">🔄 もう一度スキャン</button>
   </div>
 
-  <script src="https://unpkg.com/@zxing/library@latest"></script>
   <script>
     const codeReader = new ZXing.BrowserMultiFormatReader();
     const videoElement = document.getElementById("camera");
@@ -217,13 +205,7 @@
 
             if (data.status === "OK") {
               renderBook(data);
-              statusEl.innerHTML = `
-                <svg viewBox='0 0 500 100' width='100%' height='60'>
-                  <text x='10' y='60' class='chalk-done'>✅ 登録完了！</text>
-                </svg>
-                <div style='text-align:center; margin-top:10px;'>
-                  <img src='/static/icons/handdrawn-book.png' width='50' />
-                </div>`;
+              statusEl.textContent = "✅ Notion へ登録完了！";
             } else {
               statusEl.textContent = "⚠️ エラー: " + data.message;
             }
