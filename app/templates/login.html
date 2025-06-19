@@ -3,117 +3,115 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Notion ログイン</title>
+  <title>Notion Login</title>
   <link rel="icon" href="/static/isbn192.png" />
-  <meta name="theme-color" content="#F7F3EE" />
 
-  <!-- フォント：DM Serif Display（英字）、Noto Sans JP（日本語） -->
+  <!--　Fonts　-->
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet" />
 
   <style>
-    :root {
-      --bg-color: #F7F3EE;
-      --text-color: #524A45;
-      --border-color: #DCD3CC;
-      --accent-color: #B5A397;
-      --secondary-color: #9B887E;
+    /* ─────  Color palette  ───── */
+    :root{
+      --c-bg:      #F7F3EE;
+      --c-text:    #524A45;
+      --c-line:    #DCD3CC;
+      --c-accent:  #B5A397;
+      --c-accent2: #9B887E;
     }
 
-    * {
-      box-sizing: border-box;
+    /* ─────  Base  ───── */
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      background:var(--c-bg);
+      color:var(--c-text);
+      font-family:'Noto Sans JP',sans-serif;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      padding:4vh 5vw;
+      min-height:100vh;
     }
 
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: var(--bg-color);
-      font-family: 'Noto Sans JP', sans-serif;
-      color: var(--text-color);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+    /* ─────  Layout helpers  ───── */
+    .wrap{
+      max-width:420px;
+      width:100%;
+    }
+    .divider{
+      height:1px;
+      background:var(--c-line);
+      margin:2.4rem 0;
     }
 
-    .container {
-      background-color: white;
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 2rem;
-      width: 90%;
-      max-width: 400px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    /* ─────  Typography  ───── */
+    h1{
+      font-family:'DM Serif Display',serif;
+      font-size:2rem;
+      margin:0 0 1.8rem;
+      text-align:center;
+    }
+    label{
+      display:block;
+      font-size:.9rem;
+      font-weight:700;
+      margin-bottom:.4rem;
     }
 
-    h1 {
-      font-family: 'DM Serif Display', serif;
-      font-size: 1.8rem;
-      text-align: center;
-      margin-bottom: 1.5rem;
-      color: var(--text-color);
+    /* ─────  Fields  ───── */
+    input{
+      width:100%;
+      border:1px solid var(--c-line);
+      border-radius:6px;
+      padding:.75rem 1rem;
+      font-size:1rem;
+      font-family:inherit;
+      color:var(--c-text);
+      background:#fff;
     }
+    input::placeholder{color:#aaa;}
 
-    label {
-      display: block;
-      margin-top: 1.2rem;
-      margin-bottom: 0.3rem;
-      font-weight: bold;
-      color: var(--text-color);
+    /* ─────  Button  ───── */
+    button{
+      width:100%;
+      margin-top:2.4rem;
+      padding:.9rem 1rem;
+      font-size:1rem;
+      font-family:'Noto Sans JP',sans-serif;
+      font-weight:700;
+      color:#fff;
+      background:var(--c-accent);
+      border:none;
+      border-radius:8px;
+      cursor:pointer;
+      transition:.2s;
     }
-
-    input {
-      width: 100%;
-      padding: 0.7rem;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      font-size: 1rem;
-      background-color: #fff;
-      color: var(--text-color);
-      font-family: inherit;
-    }
-
-    input::placeholder {
-      color: #aaa;
-    }
-
-    button {
-      margin-top: 2rem;
-      width: 100%;
-      padding: 0.8rem;
-      font-size: 1rem;
-      font-weight: bold;
-      background-color: var(--accent-color);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-      font-family: 'Noto Sans JP', sans-serif;
-    }
-
-    button:hover {
-      background-color: var(--secondary-color);
-    }
-
+    button:hover{background:var(--c-accent2);}
   </style>
 </head>
+
 <body>
-  <div class="container">
-    <h1>🔐 Notion ログイン</h1>
-    <label for="token">🔑 トークン（secret_...）</label>
-    <input id="token" type="password" placeholder="secret_xxx..." autocomplete="on" />
-    <label for="dbid">📁 データベースID</label>
-    <input id="dbid" type="text" placeholder="例: abcdef123456..." autocomplete="on" />
+  <div class="wrap">
+    <h1>Notion ログイン</h1>
+
+    <label for="token">トークン（secret_…）</label>
+    <input id="token" type="password" placeholder="secret_xxx…" autocomplete="on" />
+
+    <div class="divider"></div>
+
+    <label for="dbid">データベース ID</label>
+    <input id="dbid" type="text" placeholder="例：abcdef123456…" autocomplete="on" />
+
     <button onclick="saveAndRedirect()">保存して開始</button>
   </div>
 
   <script>
-    function saveAndRedirect() {
-      const token = document.getElementById("token").value;
-      const dbid = document.getElementById("dbid").value;
-      localStorage.setItem("notionToken", token);
-      localStorage.setItem("notionDbId", dbid);
-      window.location.href = "/scan";
+    function saveAndRedirect(){
+      const token=document.getElementById('token').value;
+      const dbid =document.getElementById('dbid').value;
+      localStorage.setItem('notionToken',token);
+      localStorage.setItem('notionDbId',dbid);
+      window.location.href='/scan';
     }
   </script>
 </body>
