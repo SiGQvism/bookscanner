@@ -8,14 +8,11 @@
   <link rel="icon" href="/static/isbn192.png" />
   <meta name="theme-color" content="#1e2b20" />
 
-  <!-- Googleフォント（欧文チョーク風） -->
+  <!-- チョーク風フォント（英字） -->
   <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet" />
 
-  <!-- ZXing ライブラリ -->
-  <script src="https://unpkg.com/@zxing/library@latest"></script>
-
+  <!-- あんずもじ（ローカル） -->
   <style>
-    /* あんずもじフォントの読み込み */
     @font-face {
       font-family: 'AnzuFont';
       src: url('/static/fonts/anzu.ttf') format('truetype');
@@ -32,7 +29,9 @@
       --chalk-pink: #ffc8d2;
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
@@ -136,6 +135,8 @@
 
     #rescan-btn { display: none; }
   </style>
+
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
 </head>
 
 <body>
@@ -147,7 +148,6 @@
     <textarea id="review-input" rows="3" placeholder="📝 書評（任意でチョークで書き込もう）"></textarea>
 
     <div id="book-info"></div>
-
     <button id="rescan-btn">🔄 もう一度スキャン</button>
   </div>
 
@@ -234,6 +234,9 @@
           <li><strong>📖 要約:</strong> ${b.summary || "情報なし"}</li>
         </ul>`;
     }
+<h2 style="font-family:'AnzuFont', 'Gloria Hallelujah', cursive;">
+  🍎これはテストです：あんずもじが表示されますか？
+</h2>
 
     rescanBtn.addEventListener("click", () => beginScan());
     window.addEventListener("load", () => beginScan());
