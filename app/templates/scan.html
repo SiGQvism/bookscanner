@@ -15,6 +15,17 @@
   <script src="https://unpkg.com/@zxing/library@latest"></script>
 
   <style>
+  @font-face {
+    font-family: 'AnzuFont';
+    src: url('/static/fonts/anzu.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
+  body {
+        font-family: 'AnzuFont', 'Gloria Hallelujah', cursive;
+  }
+  
+
     :root {
       --chalk-bg: #1e2b20;        /* 黒板 */
       --chalk-board: #223322;     /* 黒板（濃） */
@@ -27,7 +38,7 @@
     * {
       box-sizing: border-box;
     }
-
+    
     body {
       margin: 0;
       background: var(--chalk-bg);
