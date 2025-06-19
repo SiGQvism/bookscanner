@@ -3,12 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ISBNスキャナ</title>
-  <link rel="manifest" href="/manifest.json" />
+  <title>Notionログイン</title>
   <link rel="icon" href="/static/isbn192.png" />
   <meta name="theme-color" content="#1e2b20" />
 
-  <!-- よもぎフォント（ローカル） -->
+  <!-- よもぎフォント -->
   <style>
     @font-face {
       font-family: 'Yomogi';
@@ -17,9 +16,6 @@
       font-style: normal;
     }
   </style>
-
-  <!-- ZXing ライブラリ -->
-  <script src="https://unpkg.com/@zxing/library@latest"></script>
 
   <!-- スタイル -->
   <style>
@@ -32,210 +28,93 @@
       --chalk-pink: #ffc8d2;
     }
 
-    * {
-      box-sizing: border-box;
-    }
-
     body {
       margin: 0;
-      background: var(--chalk-bg);
+      background-color: var(--chalk-bg);
       font-family: 'Yomogi', sans-serif;
       color: var(--chalk-text);
       display: flex;
-      flex-direction: column;
+      justify-content: center;
       align-items: center;
-      min-height: 100vh;
-      padding: 1rem 0 3rem;
+      height: 100vh;
+    }
+
+    .container {
+      background-color: var(--chalk-board);
+      border: 2px dashed var(--chalk-border);
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 0 12px rgba(255,255,255,0.1);
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
     }
 
     h1 {
-      margin: 1rem 0;
-      font-size: 2rem;
       color: var(--chalk-accent);
+      font-size: 1.8rem;
+      margin-bottom: 1.5rem;
       text-shadow: 1px 1px #000;
     }
 
-    .board {
-      background: var(--chalk-board);
-      border: 2px dashed var(--chalk-border);
-      border-radius: 12px;
-      padding: 1.2rem;
-      box-shadow: 0 0 10px rgba(255,255,255,0.08);
-      width: min(92%, 650px);
-    }
-
-    video#camera {
-      width: 100%;
-      aspect-ratio: 16/9;
-      object-fit: cover;
-      border-radius: 10px;
-      border: 2px solid var(--chalk-border);
-      box-shadow: 0 0 6px #000 inset;
-    }
-
-    #status {
-      margin-top: 1rem;
-      font-size: 1.2rem;
-      color: var(--chalk-accent);
-      text-align: center;
-      word-break: break-word;
-    }
-
-    #book-info {
-      margin-top: 1.2rem;
-      background: rgba(255,255,255,0.05);
-      border: 1px dashed var(--chalk-border);
-      border-radius: 10px;
-      padding: 1rem;
-    }
-
-    #book-info img {
+    label {
       display: block;
-      margin: 0 auto 1rem;
-      max-width: 160px;
-      border-radius: 4px;
-      border: 2px solid var(--chalk-border);
+      margin: 1rem 0 0.5rem;
+      font-weight: bold;
+      text-align: left;
     }
 
-    #book-info ul {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      line-height: 1.7;
-    }
-
-    #book-info strong {
-      color: var(--chalk-pink);
-    }
-
-    textarea#review-input {
+    input {
       width: 100%;
+      padding: 0.7rem;
+      border-radius: 6px;
       border: 1px dashed var(--chalk-border);
-      border-radius: 8px;
-      background: rgba(34,51,34,0.6);
+      background: rgba(60, 80, 60, 0.6);
       color: var(--chalk-text);
-      padding: 0.6rem;
       font-family: inherit;
-      resize: vertical;
-      margin-top: 1rem;
+      font-size: 1rem;
+    }
+
+    input::placeholder {
+      color: #ccc;
     }
 
     button {
-      display: block;
-      margin: 1.2rem auto 0;
-      padding: 0.6rem 1.8rem;
-      border: 2px solid var(--chalk-accent);
-      border-radius: 8px;
-      background: var(--chalk-accent);
-      color: var(--chalk-bg);
+      margin-top: 1.5rem;
+      padding: 0.8rem 1.5rem;
       font-size: 1rem;
-      font-family: inherit;
+      background-color: var(--chalk-accent);
+      color: var(--chalk-bg);
+      border: 2px solid var(--chalk-border);
+      border-radius: 6px;
       cursor: pointer;
+      font-family: inherit;
     }
 
-    button:hover { background: #bfffb0; }
-    button:disabled { opacity: 0.5; cursor: default; }
-    #rescan-btn { display: none; }
+    button:hover {
+      background-color: #bfffb0;
+    }
   </style>
 </head>
 
 <body>
-  <h1>📚 ISBN スキャナ</h1>
-  <div class="board">
-    <video id="camera" autoplay playsinline></video>
-    <div id="status">🔍 カメラ待機中…</div>
-    <textarea id="review-input" rows="3" placeholder="📝 書評（任意でチョークで書き込もう）"></textarea>
-    <div id="book-info"></div>
-    <button id="rescan-btn">🔄 もう一度スキャン</button>
+  <div class="container">
+    <h1>🔐 Notion ログイン</h1>
+    <label for="token">🔑 トークン（secret_...）</label>
+    <input id="token" type="password" placeholder="secret_xxx..." autocomplete="on" />
+    <label for="dbid">📁 データベースID</label>
+    <input id="dbid" type="text" placeholder="例: abcdef123456..." autocomplete="on" />
+    <button onclick="saveAndRedirect()">保存して開始</button>
   </div>
 
-  <!-- スクリプト -->
   <script>
-    const codeReader = new ZXing.BrowserMultiFormatReader();
-    const videoElement = document.getElementById("camera");
-    const statusEl     = document.getElementById("status");
-    const infoEl       = document.getElementById("book-info");
-    const rescanBtn    = document.getElementById("rescan-btn");
-    const reviewInput  = document.getElementById("review-input");
-
-    let stream = null;
-    let lastIsbn = null;
-
-    async function startCamera() {
-      try {
-        if (stream) stream.getTracks().forEach(t => t.stop());
-        const constraints = { video: { facingMode: { exact: "environment" } }, audio: false };
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-        videoElement.srcObject = stream;
-      } catch (e) {
-        statusEl.textContent = "❌ カメラを使用できません: " + e;
-      }
+    function saveAndRedirect() {
+      const token = document.getElementById("token").value;
+      const dbid = document.getElementById("dbid").value;
+      localStorage.setItem("notionToken", token);
+      localStorage.setItem("notionDbId", dbid);
+      window.location.href = "/scan";
     }
-
-    async function beginScan() {
-      await startCamera();
-      statusEl.textContent = "📖 ISBN をかざしてください…";
-      infoEl.innerHTML = "";
-      rescanBtn.style.display = "none";
-
-      codeReader.decodeFromStream(stream, videoElement, async (result, err) => {
-        if (result) {
-          const isbn = result.getText();
-          if (isbn === lastIsbn) return;
-          lastIsbn = isbn;
-
-          statusEl.textContent = "🔗 書籍情報取得中…";
-          try {
-            const token = localStorage.getItem("notionToken");
-            const dbid  = localStorage.getItem("notionDbId");
-            const review = reviewInput.value.trim();
-
-            const resp = await fetch(`/add/${isbn}`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`,
-                "X-Database-ID": dbid
-              },
-              body: JSON.stringify({ review })
-            });
-
-            const data = await resp.json();
-
-            if (data.status === "OK") {
-              renderBook(data);
-              statusEl.textContent = "✅ Notion へ登録完了！";
-            } else {
-              statusEl.textContent = "⚠️ エラー: " + data.message;
-            }
-          } catch (e) {
-            statusEl.textContent = "❌ 通信エラー";
-          }
-
-          codeReader.reset();
-          stream.getTracks().forEach(t => t.stop());
-          rescanBtn.style.display = "block";
-        }
-      });
-    }
-
-    function renderBook(b) {
-      const cover = b.cover ? `<img src="${b.cover}" alt="cover">` : "";
-      infoEl.innerHTML = `
-        ${cover}
-        <ul>
-          <li><strong>📕 書名:</strong> ${b.title || "情報なし"}</li>
-          <li><strong>✍️ 著者:</strong> ${b.author || "情報なし"}</li>
-          <li><strong>🏢 出版社:</strong> ${b.publisher || "情報なし"}</li>
-          <li><strong>💴 価格:</strong> ${b.price ? b.price + " 円" : "情報なし"}</li>
-          <li><strong>📅 出版日:</strong> ${b.pub_date || "情報なし"}</li>
-          <li><strong>📄 ページ数:</strong> ${b.pages || "情報なし"}</li>
-          <li><strong>📖 要約:</strong> ${b.summary || "情報なし"}</li>
-        </ul>`;
-    }
-
-    rescanBtn.addEventListener("click", () => beginScan());
-    window.addEventListener("load", () => beginScan());
   </script>
 </body>
 </html>
