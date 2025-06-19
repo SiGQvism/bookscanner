@@ -3,170 +3,174 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ISBNスキャナ</title>
+  <title>ISBNスキャン</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" href="/static/isbn192.png" />
-  <meta name="theme-color" content="#f7f4eb" />
+  <meta name="theme-color" content="#ffffff" />
+
+  <!-- フォント -->
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <!-- ZXingライブラリ -->
   <script src="https://unpkg.com/@zxing/library@latest"></script>
 
-  <!-- よもぎフォント -->
   <style>
-    @font-face {
-      font-family: 'Yomogi';
-      src: url('/static/fonts/Yomogi-Regular.ttf') format('truetype');
-    }
-  </style>
-
-  <style>
-    :root {
-      --bg: #f7f4eb;
-      --frame: #fdfdf5;
-      --note: #e0ffd5;
-      --border: #4a4a4a;
-      --accent: #ffa7a7;
-      --font: 'Yomogi', cursive;
+    * {
+      box-sizing: border-box;
+      font-family: 'Inter', 'IBM Plex Sans JP', sans-serif;
     }
 
     body {
       margin: 0;
-      padding: 1.5rem;
-      background: var(--bg);
-      font-family: var(--font);
-      color: #333;
+      background-color: #f9f9f9;
+      color: #111827;
       display: flex;
       flex-direction: column;
       align-items: center;
+      padding: 2rem 1rem 3rem;
+      min-height: 100vh;
     }
 
     h1 {
-      font-size: 2rem;
-      color: var(--accent);
-      text-shadow: 1px 1px #fff;
-      margin-bottom: 1rem;
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+      font-weight: 600;
+      color: #4f46e5;
+      text-align: center;
     }
 
-    .board {
-      background: var(--frame);
-      border: 4px dashed var(--border);
+    .card {
+      background-color: #ffffff;
       border-radius: 12px;
-      box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.1);
-      padding: 1rem;
-      width: min(90%, 600px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      padding: 1.8rem;
+      width: 100%;
+      max-width: 600px;
     }
 
-    video {
+    video#camera {
       width: 100%;
-      aspect-ratio: 16/9;
+      border-radius: 10px;
+      border: 2px solid #e5e7eb;
       object-fit: cover;
-      border: 2px solid var(--border);
-      border-radius: 8px;
-      box-shadow: 1px 1px 4px #aaa inset;
+      aspect-ratio: 16/9;
+      margin-bottom: 1.2rem;
     }
 
     #status {
-      margin-top: 1rem;
-      font-size: 1.1rem;
-      text-align: center;
-      color: #2e7d32;
-    }
-
-    #review-input {
-      width: 100%;
-      margin-top: 1rem;
-      padding: 0.6rem;
-      background: var(--note);
-      border: 2px dotted var(--border);
-      border-radius: 8px;
       font-size: 1rem;
-      font-family: var(--font);
-      resize: vertical;
+      color: #4b5563;
+      text-align: center;
+      margin-bottom: 1rem;
     }
 
     #book-info {
-      margin-top: 1.5rem;
-      padding: 1rem;
-      border: 2px dashed #aaa;
-      background: #fffef9;
+      background: #f3f4f6;
+      border: 1px solid #d1d5db;
       border-radius: 10px;
+      padding: 1rem;
+      margin-top: 1rem;
     }
 
     #book-info img {
       display: block;
       margin: 0 auto 1rem;
-      max-width: 180px;
-      border: 2px solid #ccc;
+      max-width: 150px;
       border-radius: 6px;
     }
 
     #book-info ul {
+      list-style: none;
       padding: 0;
       margin: 0;
-      list-style: none;
+    }
+
+    #book-info li {
       line-height: 1.6;
+      margin-bottom: 0.4rem;
     }
 
     #book-info strong {
-      color: var(--accent);
+      color: #4f46e5;
+    }
+
+    textarea#review-input {
+      width: 100%;
+      padding: 0.8rem;
+      font-size: 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: #fff;
+      color: #111827;
+      resize: vertical;
+      margin-top: 1rem;
     }
 
     button {
       margin-top: 1.4rem;
       width: 100%;
-      padding: 0.8rem;
-      font-size: 1.1rem;
-      font-family: var(--font);
-      background: #c2eabd;
-      color: #333;
-      border: 3px solid var(--border);
-      border-radius: 10px;
-      box-shadow: 3px 3px 0 #999;
+      padding: 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      background-color: #4f46e5;
+      color: white;
+      border: none;
+      border-radius: 8px;
       cursor: pointer;
+      transition: background-color 0.2s ease;
     }
 
     button:hover {
-      background: #e3ffe0;
+      background-color: #4338ca;
     }
 
     #rescan-btn {
       display: none;
+      background-color: #6b7280;
+    }
+
+    #rescan-btn:hover {
+      background-color: #4b5563;
     }
   </style>
 </head>
 
 <body>
-  <h1>📚 ISBN スキャナ</h1>
-  <div class="board">
-    <video id="camera" autoplay playsinline></video>
-    <div id="status">📖 ISBN をかざしてください</div>
+  <h1>📚 ISBNスキャナー</h1>
 
-    <textarea id="review-input" rows="3" placeholder="📝 書評（チョークで書き込もう）"></textarea>
+  <div class="card">
+    <video id="camera" autoplay playsinline></video>
+    <div id="status">🔍 ISBNコードを読み取ります</div>
+
+    <textarea id="review-input" rows="3" placeholder="📝 書評（任意）"></textarea>
 
     <div id="book-info"></div>
-
     <button id="rescan-btn">🔄 もう一度スキャン</button>
   </div>
 
   <script>
     const codeReader = new ZXing.BrowserMultiFormatReader();
     const videoElement = document.getElementById("camera");
-    const statusEl = document.getElementById("status");
-    const infoEl = document.getElementById("book-info");
-    const reviewInput = document.getElementById("review-input");
-    const rescanBtn = document.getElementById("rescan-btn");
+    const statusEl     = document.getElementById("status");
+    const infoEl       = document.getElementById("book-info");
+    const rescanBtn    = document.getElementById("rescan-btn");
+    const reviewInput  = document.getElementById("review-input");
 
     let stream = null;
     let lastIsbn = null;
 
     async function startCamera() {
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      const constraints = { video: { facingMode: { exact: "environment" } }, audio: false };
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
-      videoElement.srcObject = stream;
+      try {
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+        videoElement.srcObject = stream;
+      } catch (e) {
+        statusEl.textContent = "❌ カメラエラー: " + e;
+      }
     }
 
     async function beginScan() {
       await startCamera();
-      statusEl.textContent = "📖 ISBN をかざしてください…";
+      statusEl.textContent = "📖 ISBN をかざしてください";
       infoEl.innerHTML = "";
       rescanBtn.style.display = "none";
 
@@ -176,12 +180,12 @@
           if (isbn === lastIsbn) return;
           lastIsbn = isbn;
 
-          statusEl.textContent = "🔍 書籍情報取得中…";
-          const token = localStorage.getItem("notionToken");
-          const dbid = localStorage.getItem("notionDbId");
-          const review = reviewInput.value.trim();
-
+          statusEl.textContent = "🔗 書籍情報取得中…";
           try {
+            const token = localStorage.getItem("notionToken");
+            const dbid  = localStorage.getItem("notionDbId");
+            const review = reviewInput.value.trim();
+
             const resp = await fetch(`/add/${isbn}`, {
               method: "POST",
               headers: {
@@ -193,9 +197,10 @@
             });
 
             const data = await resp.json();
+
             if (data.status === "OK") {
               renderBook(data);
-              statusEl.textContent = "✅ 登録完了！";
+              statusEl.textContent = "✅ Notion へ登録完了！";
             } else {
               statusEl.textContent = "⚠️ エラー: " + data.message;
             }

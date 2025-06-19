@@ -3,112 +3,111 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Notionログイン</title>
+  <title>Notion Login</title>
   <link rel="icon" href="/static/isbn192.png" />
-  <meta name="theme-color" content="#f4f1e0" />
+  <meta name="theme-color" content="#ffffff" />
 
-  <!-- よもぎフォント -->
-  <style>
-    @font-face {
-      font-family: 'Yomogi';
-      src: url('/static/fonts/Yomogi-Regular.ttf') format('truetype');
-    }
-  </style>
+  <!-- フォント -->
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
 
   <style>
-    :root {
-      --bg-paper: #f4f1e0;
-      --cut-border: #444;
-      --accent: #ff7575;
-      --note: #fdf3d1;
-      --clip: #c2f2d0;
+    * {
+      box-sizing: border-box;
+      font-family: 'Inter', 'IBM Plex Sans JP', sans-serif;
     }
 
     body {
       margin: 0;
-      background: var(--bg-paper);
-      font-family: 'Yomogi', cursive;
+      padding: 0;
+      background-color: #f9f9f9;
       display: flex;
-      align-items: center;
       justify-content: center;
-      height: 100vh;
+      align-items: center;
+      min-height: 100vh;
     }
 
-    .frame {
-      background: white;
-      border: 4px dashed var(--cut-border);
-      border-radius: 16px;
-      padding: 2rem;
+    .card {
+      background-color: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      padding: 2.5rem;
+      width: 100%;
       max-width: 400px;
-      width: 88%;
-      box-shadow: 8px 8px 0 #888;
     }
 
     h1 {
-      font-size: 1.8rem;
-      margin-bottom: 1.4rem;
-      color: var(--accent);
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 1.5rem;
       text-align: center;
-      text-shadow: 1px 1px #fff;
     }
 
     label {
       display: block;
-      margin: 1rem 0 0.4rem;
-      font-weight: bold;
-      color: #444;
+      font-weight: 600;
+      color: #374151;
+      margin-top: 1rem;
+      margin-bottom: 0.4rem;
     }
 
     input {
       width: 100%;
-      padding: 0.6rem;
-      background: var(--note);
-      border: 2px dotted var(--cut-border);
-      border-radius: 6px;
+      padding: 0.75rem;
       font-size: 1rem;
-      font-family: inherit;
-      color: #333;
-      box-shadow: 1px 1px 2px #aaa inset;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background-color: #fefefe;
+      color: #111;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
-    input::placeholder {
-      color: #999;
+    input:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
     }
 
     button {
-      display: block;
       width: 100%;
-      margin-top: 1.8rem;
-      padding: 0.8rem;
-      font-size: 1.1rem;
-      font-weight: bold;
-      background-color: var(--clip);
-      border: 3px solid var(--cut-border);
-      border-radius: 10px;
+      margin-top: 2rem;
+      padding: 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      background-color: #4f46e5;
+      color: white;
+      border: none;
+      border-radius: 8px;
       cursor: pointer;
-      color: #222;
-      box-shadow: 2px 2px 0 #888;
-      transition: transform 0.1s ease;
+      transition: background-color 0.2s ease;
     }
 
     button:hover {
-      transform: scale(1.02);
-      background-color: #d2ffe2;
+      background-color: #4338ca;
+    }
+
+    .footer {
+      margin-top: 2rem;
+      text-align: center;
+      font-size: 0.85rem;
+      color: #9ca3af;
     }
   </style>
 </head>
 
 <body>
-  <div class="frame">
-    <h1>🔐 Notion ログイン</h1>
+  <div class="card">
+    <h1>🔐 Notion連携ログイン</h1>
 
-    <label for="token">🔑 トークン（secret_...）</label>
-    <input id="token" type="password" placeholder="secret_xxx..." autocomplete="on" />
+    <label for="token">NotionのToken</label>
+    <input id="token" type="password" placeholder="secret_..." autocomplete="on" />
 
-    <label for="dbid">📁 データベースID</label>
+    <label for="dbid">データベースID</label>
     <input id="dbid" type="text" placeholder="例: abcdef123456..." autocomplete="on" />
 
     <button onclick="saveAndRedirect()">保存して開始</button>
+
+    <div class="footer">© 2025 Notion Book Scanner</div>
   </div>
 
   <script>
