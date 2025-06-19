@@ -3,26 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ISBN Scanner</title>
+  <title>ISBNスキャナ</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" href="/static/isbn192.png" />
   <meta name="theme-color" content="#1e2b20" />
 
-  <!-- Googleフォント（欧文チョーク風） -->
-  <link href="https://fonts.googleapis.com/css2?family=Gloria+Hallelujah&display=swap" rel="stylesheet" />
+  <!-- よもぎフォント（ローカル） -->
+  <style>
+    @font-face {
+      font-family: 'Yomogi';
+      src: url('/static/fonts/Yomogi-Regular.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+  </style>
 
   <!-- ZXing ライブラリ -->
   <script src="https://unpkg.com/@zxing/library@latest"></script>
 
+  <!-- スタイル -->
   <style>
-    /* あんずもじフォントの読み込み */
-    @font-face {
-      font-family: 'AnzuFont';
-      src: url('/static/fonts/anzu.ttf') format('truetype');
-      font-weight: normal;
-      font-style: normal;
-    }
-
     :root {
       --chalk-bg: #1e2b20;
       --chalk-board: #223322;
@@ -32,12 +32,14 @@
       --chalk-pink: #ffc8d2;
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
       background: var(--chalk-bg);
-      font-family: 'AnzuFont', 'Gloria Hallelujah', cursive;
+      font-family: 'Yomogi', sans-serif;
       color: var(--chalk-text);
       display: flex;
       flex-direction: column;
@@ -47,7 +49,7 @@
     }
 
     h1 {
-      margin: 0.5rem 0 1rem;
+      margin: 1rem 0;
       font-size: 2rem;
       color: var(--chalk-accent);
       text-shadow: 1px 1px #000;
@@ -133,7 +135,6 @@
 
     button:hover { background: #bfffb0; }
     button:disabled { opacity: 0.5; cursor: default; }
-
     #rescan-btn { display: none; }
   </style>
 </head>
@@ -143,14 +144,12 @@
   <div class="board">
     <video id="camera" autoplay playsinline></video>
     <div id="status">🔍 カメラ待機中…</div>
-
     <textarea id="review-input" rows="3" placeholder="📝 書評（任意でチョークで書き込もう）"></textarea>
-
     <div id="book-info"></div>
-
     <button id="rescan-btn">🔄 もう一度スキャン</button>
   </div>
 
+  <!-- スクリプト -->
   <script>
     const codeReader = new ZXing.BrowserMultiFormatReader();
     const videoElement = document.getElementById("camera");

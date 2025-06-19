@@ -6,15 +6,13 @@ from jinja2 import Template
 from dotenv import load_dotenv
 from notion_client import Client
 from .fetch_book_combined import fetch_book_combined as fetch_book  # 相対パスに注意
-from fastapi.staticfiles import StaticFiles
-
 
 # ===============================
 # 📦 環境設定・初期化
 # ===============================
 load_dotenv()
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 # === パス定義 ===
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
