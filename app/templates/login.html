@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Notionログイン</title>
   <link rel="icon" href="/static/isbn192.png" />
-  <meta name="theme-color" content="#1e2b20" />
+  <meta name="theme-color" content="#121f14" />
 
   <!-- よもぎフォント -->
   <style>
@@ -20,16 +20,16 @@
   <!-- スタイル -->
   <style>
     :root {
-      --chalk-bg: #1e2b20;
-      --chalk-board: #223322;
-      --chalk-border: #859d6e;
+      --chalk-bg: #121f14;       /* より暗い黒板色 */
+      --chalk-board: #1c2d1b;
+      --chalk-border: #6f8860;
       --chalk-text: #f0f0f0;
       --chalk-accent: #9ed68c;
-      --chalk-pink: #ffc8d2;
     }
 
     body {
       margin: 0;
+      padding: 0;
       background-color: var(--chalk-bg);
       font-family: 'Yomogi', sans-serif;
       color: var(--chalk-text);
@@ -42,37 +42,38 @@
     .container {
       background-color: var(--chalk-board);
       border: 2px dashed var(--chalk-border);
-      border-radius: 12px;
-      padding: 2rem;
-      box-shadow: 0 0 12px rgba(255,255,255,0.1);
-      width: 90%;
-      max-width: 400px;
+      border-radius: 10px;
+      padding: 1.5rem;
+      width: 85%;
+      max-width: 360px;
       text-align: center;
+      box-shadow: 0 0 8px rgba(255,255,255,0.05);
     }
 
     h1 {
       color: var(--chalk-accent);
-      font-size: 1.8rem;
-      margin-bottom: 1.5rem;
+      font-size: 1.6rem;
+      margin-bottom: 1.2rem;
       text-shadow: 1px 1px #000;
     }
 
     label {
       display: block;
-      margin: 1rem 0 0.5rem;
-      font-weight: bold;
+      margin: 1rem 0 0.4rem;
+      font-size: 1rem;
       text-align: left;
     }
 
     input {
       width: 100%;
-      padding: 0.7rem;
+      padding: 0.6rem;
+      font-size: 0.95rem;
       border-radius: 6px;
       border: 1px dashed var(--chalk-border);
-      background: rgba(60, 80, 60, 0.6);
+      background-color: rgba(60, 80, 60, 0.6);
       color: var(--chalk-text);
       font-family: inherit;
-      font-size: 1rem;
+      box-sizing: border-box;
     }
 
     input::placeholder {
@@ -80,8 +81,8 @@
     }
 
     button {
-      margin-top: 1.5rem;
-      padding: 0.8rem 1.5rem;
+      margin-top: 1.2rem;
+      padding: 0.6rem 1.5rem;
       font-size: 1rem;
       background-color: var(--chalk-accent);
       color: var(--chalk-bg);
@@ -100,10 +101,13 @@
 <body>
   <div class="container">
     <h1>🔐 Notion ログイン</h1>
+
     <label for="token">🔑 トークン（secret_...）</label>
     <input id="token" type="password" placeholder="secret_xxx..." autocomplete="on" />
+
     <label for="dbid">📁 データベースID</label>
     <input id="dbid" type="text" placeholder="例: abcdef123456..." autocomplete="on" />
+
     <button onclick="saveAndRedirect()">保存して開始</button>
   </div>
 
