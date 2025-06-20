@@ -6,6 +6,9 @@ from jinja2 import Template
 from dotenv import load_dotenv
 from notion_client import Client
 from .fetch_book_combined import fetch_book_combined as fetch_book  # 相対パスに注意
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi import Request
 
 # ===============================
 # 📦 環境設定・初期化
@@ -20,6 +23,11 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 # === 静的ファイル提供（PWA対応） ===
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory="templates")
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
 
 @app.get("/manifest.json")
 def manifest():
