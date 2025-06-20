@@ -126,11 +126,26 @@
     button:hover {
       background-color: var(--accent-color);
     }
+
+    .scan-frame {
+  position: absolute;
+  top: 40%; /* 画面中央よりやや上 */
+  left: 10%;
+  width: 80%;
+  height: 20%;
+  border: 2px dashed rgba(255, 255, 255, 0.7);
+  box-sizing: border-box;
+  z-index: 10;
+  pointer-events: none; /* タップ干渉防止 */
+  border-radius: 8px;
+}
+
   </style>
 </head>
 <body>
   <h1>ISBN Scanner</h1>
   <div class="scanner-container">
+    <div class="scan-frame"></div>
     <video id="camera" autoplay playsinline></video>
     <div id="status">
       <span class="material-symbols-outlined">menu_book</span>Waiting for camera...
