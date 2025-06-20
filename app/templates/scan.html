@@ -175,15 +175,25 @@
     let lastIsbn = null;
 
     async function startCamera() {
-      try {
-        if (stream) stream.getTracks().forEach(t => t.stop());
-        const constraints = { video: { facingMode: { exact: "environment" } }, audio: false };
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-        videoElement.srcObject = stream;
-      } catch (e) {
-        statusEl.textContent = "Camera unavailable: " + e;
-      }
-    }
+  try {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+
+    const constraints = {
+      video: {
+        facingMode: { exact: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        advanced: [{ zoom: 2 }]  // 👈 ピントが合いやすくなる距離にズーム
+      },
+      audio: false
+    };
+
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    videoElement.srcObject = stream;
+  } catch (e) {
+    statusEl.textContent = "Camera unavailable: " + e;
+  }
+}
 
     async function beginScan() {
       await startCamera();
