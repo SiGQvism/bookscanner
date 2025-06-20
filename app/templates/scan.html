@@ -41,24 +41,38 @@
       margin-bottom: 1.5rem;
     }
 
-    .divider {
-      width: 90%;
-      border: none;
-      border-top: 1px solid var(--border-color);
-      margin: 2rem 0;
-    }
-
     .scanner-container {
       width: 100%;
       max-width: 640px;
     }
 
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      border-radius: 10px;
+      background: black;
+      border: 1px solid var(--border-color);
+    }
+
     video {
       width: 100%;
-      border-radius: 8px;
-      border: 1px solid var(--border-color);
+      height: 100%;
       object-fit: cover;
-      aspect-ratio: 16/9;
+      border-radius: 10px;
+    }
+
+    .scan-frame {
+      position: absolute;
+      top: 35%;
+      left: 10%;
+      width: 80%;
+      height: 20%;
+      border: 2px dashed rgba(255, 255, 255, 0.7);
+      border-radius: 6px;
+      pointer-events: none;
+      z-index: 10;
     }
 
     #status {
@@ -126,29 +140,17 @@
     button:hover {
       background-color: var(--accent-color);
     }
-
-    .scan-frame {
-  position: relative;
-  top: 35%; /* 画面中央よりやや上 */
-  left: 10%;
-  width: 80%;
-  height: 20%;
-  border: 2px dashed rgba(255, 255, 255, 0.7);
-  box-sizing: border-box;
-  z-index: 10;
-  pointer-events: none; /* タップ干渉防止 */
-  border-radius: 8px;
-}
-
   </style>
 </head>
 <body>
   <h1>ISBN Scanner</h1>
   <div class="scanner-container">
-    <div class="camera-container">
-  <video id="camera" autoplay></video>
-  <div class="scan-frame"></div>  <!-- ← videoの中にガイド -->
-</div>
+    <div class="video-wrapper">
+      <video id="camera" autoplay playsinline></video>
+      <div class="scan-frame"></div>
+    </div>
+
+    <div id="status">
       <span class="material-symbols-outlined">menu_book</span>Waiting for camera...
     </div>
 
@@ -194,6 +196,7 @@
           const isbn = result.getText();
           if (isbn === lastIsbn) return;
           lastIsbn = isbn;
+          console.log("Scanned ISBN:", isbn);
 
           statusEl.innerHTML = '<span class="material-symbols-outlined">sync</span>Fetching book info...';
           try {
@@ -245,7 +248,12 @@
     }
 
     rescanBtn.addEventListener("click", () => beginScan());
+
     window.addEventListener("load", () => beginScan());
+
+    window.addEventListener("beforeunload", () => {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+    });
   </script>
 </body>
 </html>
