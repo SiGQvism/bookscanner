@@ -1,5 +1,5 @@
 {
-  "name": "BookScanner",
+  "name": "Inkline",
   "short_name": "BookScan",
   "start_url": "/scan",
   "display": "standalone",
