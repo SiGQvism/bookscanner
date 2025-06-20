@@ -128,11 +128,11 @@
     }
 
     .scan-frame {
-  position: absolute;
-  top: 20%; /* 画面中央よりやや上 */
-  left: 20%;
-  width: 40%;
-  height: 25%;
+  position: relative;
+  top: 35%; /* 画面中央よりやや上 */
+  left: 10%;
+  width: 80%;
+  height: 20%;
   border: 2px dashed rgba(255, 255, 255, 0.7);
   box-sizing: border-box;
   z-index: 10;
@@ -145,9 +145,10 @@
 <body>
   <h1>ISBN Scanner</h1>
   <div class="scanner-container">
-    <div class="scan-frame"></div>
-    <video id="camera" autoplay playsinline></video>
-    <div id="status">
+    <div class="camera-container">
+  <video id="camera" autoplay></video>
+  <div class="scan-frame"></div>  <!-- ← videoの中にガイド -->
+</div>
       <span class="material-symbols-outlined">menu_book</span>Waiting for camera...
     </div>
 
