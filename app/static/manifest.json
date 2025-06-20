@@ -7,7 +7,7 @@
   "theme_color": "#524A45",
   "icons": [ 
     {
-      "src": "/static/ISBN192.png",
+      "src": "/static/192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
