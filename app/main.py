@@ -23,7 +23,7 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 # === 静的ファイル提供（PWA対応） ===
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory="app/templates")
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
