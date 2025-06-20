@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,146 +9,142 @@
   <meta name="theme-color" content="#F7F3EE" />
 
   <!-- Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet" />
-  <script src="https://unpkg.com/@zxing/library@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Noto+Sans+JP&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
 
   <style>
     :root {
-      --c-bg:      #F7F3EE;
-      --c-text:    #524A45;
-      --c-line:    #DCD3CC;
-      --c-accent:  #B5A397;
-      --c-accent2: #9B887E;
+      --bg-color: #F7F3EE;
+      --text-color: #524A45;
+      --border-color: #DCD3CC;
+      --highlight-color: #B5A397;
+      --accent-color: #9B887E;
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      background: var(--c-bg);
-      color: var(--c-text);
+      padding: 2rem;
       font-family: 'Noto Sans JP', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 4vh 5vw;
-      min-height: 100vh;
-    }
-
-    .wrap {
-      max-width: 500px;
-      width: 100%;
+      font-size: 16px;
     }
 
     h1 {
       font-family: 'DM Serif Display', serif;
       font-size: 2rem;
-      text-align: center;
-      margin: 0 0 1.8rem;
+      margin-bottom: 1.5rem;
     }
 
     .divider {
-      height: 1px;
-      background: var(--c-line);
-      margin: 2.4rem 0;
+      width: 90%;
+      border: none;
+      border-top: 1px solid var(--border-color);
+      margin: 2rem 0;
+    }
+
+    .scanner-container {
+      width: 100%;
+      max-width: 640px;
     }
 
     video {
       width: 100%;
-      aspect-ratio: 16/9;
-      border-radius: 10px;
-      border: 1px solid var(--c-line);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
       object-fit: cover;
+      aspect-ratio: 16/9;
     }
 
     #status {
-      text-align: center;
       margin-top: 1rem;
       font-size: 1rem;
-      color: var(--c-accent2);
-    }
-
-    textarea {
-      width: 100%;
-      border: 1px solid var(--c-line);
-      border-radius: 8px;
-      padding: 0.75rem;
-      font-size: 1rem;
-      font-family: inherit;
-      background: #fff;
-      color: var(--c-text);
-      resize: vertical;
+      color: var(--accent-color);
     }
 
     #book-info {
       margin-top: 1.5rem;
-      background: rgba(255,255,255,0.6);
-      border: 1px solid var(--c-line);
-      border-radius: 8px;
-      padding: 1rem;
+      padding: 1rem 0;
     }
 
     #book-info img {
       display: block;
-      max-width: 180px;
       margin: 0 auto 1rem;
+      max-width: 160px;
       border-radius: 4px;
-      border: 1px solid var(--c-line);
+      border: 1px solid var(--border-color);
     }
 
     #book-info ul {
       list-style: none;
       padding: 0;
-      margin: 0;
-      line-height: 1.8;
     }
 
-    #book-info strong {
+    #book-info li {
+      margin: 0.5rem 0;
+    }
+
+    strong {
       font-weight: bold;
-      color: var(--c-accent);
+      color: var(--highlight-color);
+    }
+
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-size: 1.2rem;
+      vertical-align: middle;
+      margin-right: 0.4rem;
+    }
+
+    textarea {
+      width: 100%;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: #fff;
+      padding: 0.7rem;
+      margin-top: 1rem;
+      font-family: inherit;
+      resize: vertical;
     }
 
     button {
-      width: 100%;
-      margin-top: 2rem;
-      padding: 0.9rem 1rem;
-      font-size: 1rem;
-      font-family: 'Noto Sans JP', sans-serif;
-      font-weight: 700;
-      color: #fff;
-      background: var(--c-accent);
+      background-color: var(--highlight-color);
       border: none;
-      border-radius: 8px;
+      color: white;
+      padding: 0.7rem 1.5rem;
+      margin-top: 1.2rem;
+      border-radius: 6px;
       cursor: pointer;
-      transition: 0.2s;
+      font-size: 1rem;
     }
 
     button:hover {
-      background: var(--c-accent2);
-    }
-
-    #rescan-btn {
-      display: none;
+      background-color: var(--accent-color);
     }
   </style>
 </head>
-
 <body>
-  <div class="wrap">
-    <h1>ISBN スキャナ</h1>
-
+  <h1>ISBN Scanner</h1>
+  <div class="scanner-container">
     <video id="camera" autoplay playsinline></video>
-    <div id="status">📷 カメラを起動中…</div>
+    <div id="status">
+      <span class="material-symbols-outlined">menu_book</span>Waiting for camera...
+    </div>
 
-    <div class="divider"></div>
-
-    <textarea id="review-input" rows="3" placeholder="📝 書評（任意）"></textarea>
+    <textarea id="review-input" rows="3" placeholder="Add a short review..."></textarea>
 
     <div id="book-info"></div>
-
-    <button id="rescan-btn">🔄 再スキャン</button>
+    <button id="rescan-btn" style="display:none;">
+      <span class="material-symbols-outlined">refresh</span>Scan again
+    </button>
   </div>
 
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
   <script>
     const codeReader = new ZXing.BrowserMultiFormatReader();
     const videoElement = document.getElementById("camera");
@@ -167,13 +163,13 @@
         stream = await navigator.mediaDevices.getUserMedia(constraints);
         videoElement.srcObject = stream;
       } catch (e) {
-        statusEl.textContent = "❌ カメラを使用できません: " + e;
+        statusEl.textContent = "Camera unavailable: " + e;
       }
     }
 
     async function beginScan() {
       await startCamera();
-      statusEl.textContent = "📖 ISBN をかざしてください…";
+      statusEl.innerHTML = '<span class="material-symbols-outlined">menu_book</span>Hold an ISBN code in front of the camera';
       infoEl.innerHTML = "";
       rescanBtn.style.display = "none";
 
@@ -183,7 +179,7 @@
           if (isbn === lastIsbn) return;
           lastIsbn = isbn;
 
-          statusEl.textContent = "📡 書籍情報取得中…";
+          statusEl.innerHTML = '<span class="material-symbols-outlined">sync</span>Fetching book info...';
           try {
             const token = localStorage.getItem("notionToken");
             const dbid = localStorage.getItem("notionDbId");
@@ -202,12 +198,12 @@
             const data = await resp.json();
             if (data.status === "OK") {
               renderBook(data);
-              statusEl.textContent = "✅ 登録完了";
+              statusEl.innerHTML = '<span class="material-symbols-outlined">check_circle</span>Book added successfully!';
             } else {
-              statusEl.textContent = "⚠️ エラー: " + data.message;
+              statusEl.innerHTML = '<span class="material-symbols-outlined">error_outline</span>Error: ' + data.message;
             }
           } catch (e) {
-            statusEl.textContent = "❌ 通信エラー";
+            statusEl.innerHTML = '<span class="material-symbols-outlined">cancel</span>Network error';
           }
 
           codeReader.reset();
@@ -222,13 +218,13 @@
       infoEl.innerHTML = `
         ${cover}
         <ul>
-          <li><strong>📕 書名:</strong> ${b.title || "情報なし"}</li>
-          <li><strong>✍️ 著者:</strong> ${b.author || "情報なし"}</li>
-          <li><strong>🏢 出版社:</strong> ${b.publisher || "情報なし"}</li>
-          <li><strong>💴 価格:</strong> ${b.price ? b.price + " 円" : "情報なし"}</li>
-          <li><strong>📅 出版日:</strong> ${b.pub_date || "情報なし"}</li>
-          <li><strong>📄 ページ数:</strong> ${b.pages || "情報なし"}</li>
-          <li><strong>📖 要約:</strong> ${b.summary || "情報なし"}</li>
+          <li><span class="material-symbols-outlined">menu_book</span><strong>Title:</strong> ${b.title || "N/A"}</li>
+          <li><span class="material-symbols-outlined">edit_note</span><strong>Author:</strong> ${b.author || "N/A"}</li>
+          <li><span class="material-symbols-outlined">apartment</span><strong>Publisher:</strong> ${b.publisher || "N/A"}</li>
+          <li><span class="material-symbols-outlined">attach_money</span><strong>Price:</strong> ${b.price ? b.price + " yen" : "N/A"}</li>
+          <li><span class="material-symbols-outlined">event</span><strong>Published:</strong> ${b.pub_date || "N/A"}</li>
+          <li><span class="material-symbols-outlined">description</span><strong>Pages:</strong> ${b.pages || "N/A"}</li>
+          <li><span class="material-symbols-outlined">subject</span><strong>Summary:</strong> ${b.summary || "N/A"}</li>
         </ul>`;
     }
 
