@@ -137,7 +137,8 @@ def fetch_book_combined(isbn: str) -> dict:
                 update_if_empty("pages", str(item.get("pageCount", "")))
     except Exception as e:
         print(f"❌ Google Booksエラー: {e}")
-
+        if not result["pages"]:
+            result["pages"] = "N/A"
     # Cloudinary
     try:
         if result["cover"]:
